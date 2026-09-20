@@ -33,4 +33,5 @@ logs/
 # vercel deploy artefacts (generated page + project link)
 deploy/index.html
 deploy/paper.html
+!deploy/paper/
 .vercel/

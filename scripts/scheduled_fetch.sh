@@ -36,6 +36,9 @@ mkdir -p data/raw
   # 3. validate the canonical file
   "$PY" validate_data.py data/nifty_3y.csv --json data/nifty_3y.validation.json 2>&1 | sed -n '/^Verdict/,$p'
   rc_val=${PIPESTATUS[0]}
-  echo "=== $(date '+%Y-%m-%d %H:%M:%S') done  fetch=$rc_fetch favfirst=$rc_fav validate=$rc_val ==="
+  # 4. permanent paper page for today (from the bars just fetched; exit 3 = no session today)
+  "$PY" -W ignore paper_trade.py --simulate --as-of 15:30 --no-deploy --archive 2>&1 | grep -E "wrote|completed trades|ERROR|no complete bars"
+  rc_arc=${PIPESTATUS[0]}; [ "$rc_arc" = "3" ] && rc_arc=0
+  echo "=== $(date '+%Y-%m-%d %H:%M:%S') done  fetch=$rc_fetch favfirst=$rc_fav validate=$rc_val archive=$rc_arc ==="
 } >> "$LOG" 2>&1
-exit $(( rc_fetch != 0 || rc_fav != 0 || rc_val != 0 ))
+exit $(( rc_fetch != 0 || rc_fav != 0 || rc_val != 0 || rc_arc != 0 ))

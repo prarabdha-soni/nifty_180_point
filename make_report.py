@@ -106,6 +106,7 @@ def replay_state_track(run_dir: str, data_path: str) -> Optional[dict]:
         "pending_level": fs.pending_spot_level,
         "consecutive_early_stops": fs.consecutive_early_stops,
         "last_spot": fs.last_spot, "last_fut": fs.last_futures,
+        "cost_rate": cfg.transaction_cost_per_side,
     }
     return {"fields": ["t", "pos", "trade_id", "entry", "mfe", "early_stop", "gap_regime",
                        "deferred", "deferred_price", "partial_done", "pending_level", "pending_side"],
@@ -203,6 +204,9 @@ def main() -> int:
     ap.add_argument("--title", default="NIFTY 180-Point Swing — Backtest Report")
     ap.add_argument("--live", action="store_true",
                     help="paper-trading page: banner, live status box, open position drawn")
+    ap.add_argument("--archive-dir", default=None,
+                    help="folder of <date>.html pages; listed as 'previous days' links (live pages)")
+    ap.add_argument("--archive-url", default="/paper", help="URL prefix for those links")
     ap.add_argument("--no-replay", action="store_true",
                     help="skip re-running the engine to record per-tick state (trade view then "
                          "reconstructs levels from the rules, which ignores gap suspension and R6)")
@@ -253,6 +257,9 @@ def main() -> int:
                    "T": p.get("trail_distance", 180), "q": p.get("partial_fraction", 0.5)},
         "runs": runs,
         "live": bool(args.live),
+        "archive": sorted(f[:-5] for f in os.listdir(args.archive_dir) if f.endswith(".html"))
+        if args.archive_dir and os.path.isdir(args.archive_dir) else [],
+        "archive_url": args.archive_url,
     }
     html = TEMPLATE.replace("__TITLE__", args.title).replace(
         "__DATA__", json.dumps(payload, separators=(",", ":")))
@@ -342,6 +349,7 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--hover)} tbody tr.sel{ba
     this project contains no order code. The last, still-forming minute is left out.
   </div>
   <div id="status" class="panel" style="display:none"></div>
+  <div id="archive" class="note" style="display:none"></div>
   <div class="runs" id="runs"></div>
   <div class="tiles" id="tiles"></div>
 
@@ -493,7 +501,7 @@ function renderOverview() {
   const every = Math.max(1, Math.ceil(days.length / Math.max(3, Math.floor((R - L) / 90))));
   axes(g, L, R, Tp, B, ylo, yhi, days.filter((_, k) => k % every === 0).map(([p, d]) => [X(p), d.slice(5)]));
   // trade spans
-  const trades = DATA.runs[run].trades;
+  const trades = tradesOf(DATA.runs[run]);
   for (const tr of trades) {
     const a = ovPos(idxAt(tr.entry_datetime)), b = ovPos(idxAt(tr.exit_datetime));
     g.fillStyle = css(tr.net_pnl >= 0 ? "--win" : "--loss");
@@ -515,17 +523,6 @@ function renderOverview() {
     g.strokeStyle = css(tr.net_pnl >= 0 ? "--long" : "--short"); g.lineWidth = 1.6; g.beginPath();
     g.moveTo(xx - 4, yx - 4); g.lineTo(xx + 4, yx + 4); g.moveTo(xx + 4, yx - 4); g.lineTo(xx - 4, yx + 4); g.stroke();
     marks.push({ x: xe, y: ye, tr, kind: "entry" }, { x: xx, y: yx, tr, kind: "exit" });
-  }
-  const f = DATA.runs[run].track && DATA.runs[run].track.final;
-  if (f && f.pos && f.entry_t) {
-    const pe = ovPos(idxAt(f.entry_t)), xe = X(pe), ye = Y(f.entry);
-    g.fillStyle = css("--sel"); g.fillRect(xe, Tp, X(n - 1) - xe, B - Tp);
-    g.fillStyle = css(f.pos > 0 ? "--long" : "--short"); g.beginPath();
-    if (f.pos > 0) { g.moveTo(xe, ye - 9); g.lineTo(xe - 5, ye - 1); g.lineTo(xe + 5, ye - 1); }
-    else { g.moveTo(xe, ye + 9); g.lineTo(xe - 5, ye + 1); g.lineTo(xe + 5, ye + 1); }
-    g.closePath(); g.fill();
-    const lab = `OPEN ${f.pos > 0 ? "LONG" : "SHORT"} @ ${num(f.entry)}`; g.font = "11px system-ui"; g.textBaseline = "top";
-    const fits = xe + 8 + g.measureText(lab).width < R; g.textAlign = fits ? "left" : "right"; g.fillText(lab, fits ? xe + 8 : xe - 8, Tp + 4);
   }
   ovState = { L, R, Tp, B, n, X, Y, marks, trades };
 }
@@ -556,7 +553,8 @@ function renderEquity() {
   const pts = [[0, 0]]; let cum = 0, peak = 0; const dd = [[0, 0]];
   for (const tr of trades) { cum += tr.net_pnl; peak = Math.max(peak, cum); pts.push([ovPos(idxAt(tr.exit_datetime)), cum]); dd.push([pts[pts.length - 1][0], cum - peak]); }
   pts.push([n - 1, cum]); dd.push([n - 1, cum - peak]);
-  const [ylo, yhi] = scale(pts.map(p => p[1]).concat(dd.map(p => p[1])), 0.1);
+  let [ylo, yhi] = scale(pts.map(p => p[1]).concat(dd.map(p => p[1])), 0.1);
+  if (yhi - ylo < 2000) { ylo = Math.min(ylo, -1000); yhi = Math.max(yhi, 1000); }
   const X = p => L + (R - L) * p / Math.max(n - 1, 1), Y = v => B - (B - Tp) * (v - ylo) / (yhi - ylo);
   g.clearRect(0, 0, w, h);
   const days = []; let last = ""; OV.forEach((i, p) => { const d = fmtD(T.t[i]); if (d !== last) { days.push([p, d]); last = d; } });
@@ -584,13 +582,14 @@ const COLS = [
   ["holding_time", "hold h", "h"], ["sessions_spanned", "sessions"], ["breaker_triggered", "breaker"], ["gap_regime_flag", "gap"],
 ];
 function renderTable() {
-  const trades = [...DATA.runs[run].trades].sort((a, b) => { const x = a[sortKey], y = b[sortKey];
+  const trades = [...tradesOf(DATA.runs[run])].sort((a, b) => { const x = a[sortKey], y = b[sortKey];
     return (x == null ? -Infinity : x) > (y == null ? -Infinity : y) ? sortDir : -sortDir; });
   const th = document.querySelector("#tbl thead"); th.innerHTML = "<tr>" + COLS.map(([k, l]) => `<th class="${k === "direction" || k.endsWith("reason") ? "l" : ""}">${l}${k === sortKey ? (sortDir > 0 ? " ▲" : " ▼") : ""}</th>`).join("") + "</tr>";
   th.querySelectorAll("th").forEach((e, i) => e.onclick = () => { const k = COLS[i][0]; if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = 1; } renderTable(); });
   const tb = document.querySelector("#tbl tbody"); tb.innerHTML = "";
   for (const tr of trades) {
     const row = document.createElement("tr"); if (tr.trade_id === selected) row.className = "sel";
+    if (tr.open) row.style.fontStyle = "italic";
     row.innerHTML = COLS.map(([k, _, f]) => { let v = tr[k]; let cls = "";
       if (f === "t") v = fmtT(v); else if (f === "n") v = num(v, k.includes("excursion") || k === "points" ? 1 : 2);
       else if (f === "m") { cls = v >= 0 ? "pos" : "neg"; v = money(v); } else if (f === "h") v = (v / 3600).toFixed(1);
@@ -604,7 +603,7 @@ function renderTable() {
 
 // ---------- trade detail ----------
 function renderDetail() {
-  const R = DATA.runs[run]; const trades = R.trades;
+  const R = DATA.runs[run]; const trades = tradesOf(R);
   if (!trades.length) { setupCanvas(document.getElementById("dt"));
     document.getElementById("kv").innerHTML = "<div>Trades</div><div>none completed yet</div>";
     document.getElementById("ev").innerHTML = ""; document.getElementById("howto").textContent =
@@ -699,7 +698,7 @@ function renderDetail() {
   const kv = [["Trade", `#${tr.trade_id} ${tr.direction}`], ["Entered", `${fmtT(tr.entry_datetime)} · ${tr.entry_reason}`],
     ["Entry spot / fut", `${num(tr.entry_spot)} / ${num(tr.entry_futures)}`], ["Quantity", tr.entry_qty],
     ["Partial", tr.partial_datetime ? `${fmtT(tr.partial_datetime)} · ${tr.partial_qty} @ spot ${num(tr.partial_spot)} / fut ${num(tr.partial_futures)}` : "none"],
-    ["Exited", `${fmtT(tr.exit_datetime)} · ${tr.exit_reason}`], ["Exit spot / fut", `${num(tr.exit_spot)} / ${num(tr.exit_futures)} (qty ${tr.exit_qty})`],
+    [tr.open ? "Still open — marked at" : "Exited", `${fmtT(tr.exit_datetime)} · ${tr.exit_reason}`], ["Exit spot / fut", `${num(tr.exit_spot)} / ${num(tr.exit_futures)} (qty ${tr.exit_qty})`],
     ["Gross / cost / net", `${money(tr.gross_pnl)} / ${money(tr.transaction_cost)} / <b class="${tr.net_pnl >= 0 ? "pos" : "neg"}">${money(tr.net_pnl)}</b>`],
     ["Points per unit", `${tr.points} (${(tr.points / tr.entry_spot * 100).toFixed(3)}% of index)`],
     ["Best / worst (MFE / MAE)", `+${num(tr.maximum_favourable_excursion, 1)} / ${num(tr.maximum_adverse_excursion, 1)} pts`],
@@ -712,17 +711,41 @@ function renderDetail() {
     `How to read it: the trade opened ${tr.direction} at <b>${num(E)}</b>. If price ${opp} ${P.S} points to the red line before it ever ${side} ${P.A} to the amber line, the early stop closes it and the engine reverses. Once the amber line is touched the red line is switched off for good. Touching the purple line closes half. From the moment the amber line is touched, the blue trailing stop follows the best price at a distance of ${P.T}; touching it closes the rest. Inside an amber band the engine is in the favourable-gap regime and the trailing stop is switched off (the dashed grey line shows where it would be); when the regime ends the engine rebases MFE (R6), which is why the blue line can jump. ${recorded ? "Levels are taken from the engine's recorded state, not re-derived." : "Levels are reconstructed from the rules (no recorded state)."}`;
 }
 
+// The position still open at the last tick, marked at the last futures price,
+// as a ledger row: gross on futures, both sides' costs charged as if closed now.
+function openPosition(R) {
+  const f = R.track && R.track.final;
+  const raw = R.trades.find(t => t.exit_datetime == null);     // the engine's own unclosed record
+  if (!DATA.live || !f || !f.pos || !raw) return null;
+  const lastT = T.t[N - 1], lastS = T.s[N - 1], lastF = T.f[N - 1], rate = f.cost_rate || 0;
+  const qty = raw.entry_qty || f.qty, ef = raw.entry_futures != null ? raw.entry_futures : f.entry_fut;
+  const gross = (lastF - ef) * f.pos * qty;
+  const cost = (Math.abs(ef) + Math.abs(lastF)) * qty * rate;
+  return Object.assign({}, raw, { exit_datetime: lastT, exit_spot: lastS, exit_futures: lastF, exit_qty: qty,
+    exit_reason: "OPEN (marked at last price)", gross_pnl: gross, transaction_cost: cost, net_pnl: gross - cost,
+    points: gross / qty, maximum_favourable_excursion: f.mfe, maximum_adverse_excursion: f.mae,
+    holding_time: lastT - raw.entry_datetime, sessions_spanned: 1, breaker_triggered: !!f.deferred,
+    gap_regime_flag: !!f.gap_regime, open: true });
+}
+function tradesOf(R) { const o = openPosition(R); const closed = R.trades.filter(t => t.exit_datetime != null); return o ? closed.concat([o]) : closed; }
+
 function renderStatus() {
-  const box = document.getElementById("status"), ban = document.getElementById("banner");
-  if (!DATA.live) { box.style.display = "none"; ban.style.display = "none"; return; }
+  const box = document.getElementById("status"), ban = document.getElementById("banner"), arc = document.getElementById("archive");
+  if (!DATA.live) { box.style.display = "none"; ban.style.display = "none"; arc.style.display = "none"; return; }
   ban.style.display = "block";
+  if (DATA.archive && DATA.archive.length) { arc.style.display = "block";
+    arc.innerHTML = "Previous days: " + DATA.archive.slice().reverse().map(d => `<a href="${DATA.archive_url}/${d}">${d}</a>`).join(" · "); }
   const R = DATA.runs[run], f = R.track && R.track.final;
   if (!f) { box.style.display = "none"; return; }
   const side = f.pos > 0 ? "LONG" : f.pos < 0 ? "SHORT" : "FLAT";
   const openR = f.pos && f.last_spot != null && f.entry != null ? (f.last_spot - f.entry) * f.pos : null;
+  const o = openPosition(R), realised = R.metrics.total_net_pnl || 0, closedN = R.metrics.completed_trades || 0;
   const items = [
     ["As of (last complete minute)", fmtT(T.t[N - 1])], ["Spot / futures", `${num(T.s[N - 1])} / ${num(T.f[N - 1])}`],
     ["Position", side + (f.pos ? ` · qty ${f.qty} · since ${fmtT(f.entry_t)}` : "")],
+    ["Closed trades today", `${closedN} · realised <b class="${realised >= 0 ? "pos" : "neg"}">${money(realised)}</b>`],
+    ["Open position, if closed now", o ? `<b class="${o.net_pnl >= 0 ? "pos" : "neg"}">${money(o.net_pnl)}</b> (${money(o.gross_pnl)} on futures − ${money(o.transaction_cost)} costs)` : "—"],
+    ["Day total", `<b class="${(realised + (o ? o.net_pnl : 0)) >= 0 ? "pos" : "neg"}">${money(realised + (o ? o.net_pnl : 0))}</b>`],
   ];
   if (f.pos) items.push(["Entry spot / fut", `${num(f.entry)} / ${num(f.entry_fut)}`],
     ["Open P&L (spot pts)", `${openR >= 0 ? "+" : ""}${num(openR, 1)}`],

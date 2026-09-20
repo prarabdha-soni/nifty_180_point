@@ -47,7 +47,7 @@ jobs:
         run: |
           git config user.name "nifty180-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data/raw/angel
+          git add data/raw/angel deploy/paper
           git diff --cached --quiet && echo "no new bars" && exit 0
           git commit -q -m "data: bars through $(date +%Y-%m-%d)"
           git pull --rebase -q origin main

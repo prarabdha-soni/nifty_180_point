@@ -78,6 +78,8 @@ def main() -> int:
     ap.add_argument("--as-of", default=None, help="HH:MM -- ignore bars at/after this time")
     ap.add_argument("--simulate", action="store_true", help="offline: bars from the chunk cache only")
     ap.add_argument("--no-deploy", action="store_true")
+    ap.add_argument("--archive", action="store_true",
+                    help="also write deploy/paper/<date>.html (permanent page for the day)")
     ap.add_argument("--cache-dir", default=os.path.join(HERE, "data", "raw", "angel"))
     ap.add_argument("--ohlc-order", choices=("adverse-first", "favourable-first"), default="adverse-first")
     args = ap.parse_args()
@@ -160,13 +162,18 @@ def main() -> int:
     title = (f"PAPER TEST — {date} · as of {cutoff.strftime('%H:%M')}"
              + (" · DRY RUN from cached bars" if args.simulate else ""))
     page = os.path.join(HERE, "deploy", "paper.html")
+    arch_dir = os.path.join(HERE, "deploy", "paper")
+    os.makedirs(arch_dir, exist_ok=True)
     rel = os.path.relpath(day_csv, HERE)
-    rc = subprocess.call([PY, os.path.join(HERE, "make_report.py"), "--data", rel, "--live",
-                          "--title", title, f"ALWAYS={os.path.relpath(os.path.join(out_dir, 'always'), HERE)}",
-                          f"FLAT_ONLY={os.path.relpath(os.path.join(out_dir, 'flat_only'), HERE)}", "--out", page],
-                         cwd=HERE)
-    if rc != 0:
-        raise fd.FetchError("make_report failed")
+    targets = [page] + ([os.path.join(arch_dir, f"{date.isoformat()}.html")] if args.archive else [])
+    for out in targets:
+        rc = subprocess.call([PY, os.path.join(HERE, "make_report.py"), "--data", rel, "--live",
+                              "--title", title, "--archive-dir", arch_dir,
+                              f"ALWAYS={os.path.relpath(os.path.join(out_dir, 'always'), HERE)}",
+                              f"FLAT_ONLY={os.path.relpath(os.path.join(out_dir, 'flat_only'), HERE)}",
+                              "--out", out], cwd=HERE)
+        if rc != 0:
+            raise fd.FetchError("make_report failed")
     with open(os.path.join(out_dir, "status.json"), "w") as fh:
         json.dump({"date": date.isoformat(), "as_of": cutoff.isoformat(timespec="minutes"),
                    "bars_today": n_today, "contract": contract_used, "simulate": args.simulate,
