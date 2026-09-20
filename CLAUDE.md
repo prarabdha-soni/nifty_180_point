@@ -189,15 +189,24 @@ Files: `data/nifty_3y.csv` (canonical, adverse-first), `data/nifty_3y_favfirst.c
 `results/insample_{always,flat_only,r6_carry,always_favfirst}/` on the OHLC
 in-sample; `results/*_closeonly/` kept only to show the artefact.
 
-**Scheduled fetch:** `scripts/scheduled_fetch.sh` runs every weekday 18:30 via
-launchd (`scripts/install_schedule.sh`; log `data/raw/scheduled_fetch.log`).
-Daily rather than weekly because Angel One drops a contract from its API the
-day after expiry; expired contracts are recovered from `data/raw/angel/` so
-history accumulates (fixed `--start 2023-09-20`). Cache blocks are anchored to
-a fixed 25-day calendar grid so any date range reuses them. macOS caveat: a
-launchd job cannot read `~/Downloads` (TCC) — the agent exits 126 until either
-`/bin/bash` gets Full Disk Access or the project is moved out of Downloads and
-the installer re-run. The job never splits or backtests.
+**Scheduled jobs run on GitHub Actions (since 2026-09-21), not on the Mac.**
+- `.github/workflows/fetch.yml` — 18:30 IST weekdays: `scripts/scheduled_fetch.sh`,
+  then commits `data/raw/angel/` (the 1-min bar cache, ~23 MB, tracked in git;
+  the 34 MB scrip master is not). History accumulates in the repo; expired
+  contracts are recovered from the cache dirs. **Do not run the fetch on the Mac
+  any more** — it rewrites the same cache files and conflicts with the bot's
+  commits; `git pull` brings the bars.
+- `.github/workflows/paper.yml` — every 10 min during market hours (UTC cron
+  + the script's IST guard): `scripts/paper_day.sh` → `/paper` on Vercel. The
+  broker session token is carried between runs with actions/cache.
+- Secrets: repository secrets ANGEL_API_KEY, ANGEL_CLIENT_CODE, ANGEL_MPIN,
+  ANGEL_TOTP_SECRET, VERCEL_TOKEN (set with `gh secret set -f .env`).
+- Inspect: `gh run list --workflow=paper.yml`, `gh run view <id> --log`.
+  Manual test: `gh workflow run paper.yml -f force=1 -f args="--date D --as-of HH:MM"`.
+- The launchd agents (`scripts/*.plist`, `install_schedule.sh`) are kept as an
+  optional local fallback but are NOT installed; GitHub's scheduler can start
+  runs 5–15 min late. Cache blocks are anchored to a fixed 25-day calendar
+  grid so any date range reuses them. Neither job splits or backtests.
 
 **Data status (fetched 2026-09-20, `--nearest-available`):**
 `data/nifty_3y.csv` = 28,784 rows, 78 sessions, 2026-06-01..2026-09-18, one
