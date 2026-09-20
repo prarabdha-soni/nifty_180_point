@@ -121,12 +121,48 @@ class AngelClient:
     RATE_LIMIT_MARKERS = ("rate", "access denied", "too many", "ab1004", "ab2001")
 
     def __init__(self, creds: Credentials, min_interval: float = 0.4,
-                 max_retries: int = 6):
+                 max_retries: int = 6, session_cache: Optional[str] = None):
         self.creds = creds
         self.min_interval = min_interval
         self.max_retries = max_retries
+        self.session_cache = session_cache      # today's JWT, so polls don't re-login every time
         self._last_call = 0.0
         self._api = None
+
+    def _load_cached_session(self):
+        """Reuse today's session if the cached token still works (one login a
+        day instead of one per poll; SmartAPI rate-limits logins)."""
+        if not self.session_cache or not os.path.exists(self.session_cache):
+            return None
+        try:
+            with open(self.session_cache) as fh:
+                rec = json.load(fh)
+        except (OSError, ValueError):
+            return None
+        if rec.get("date") != dt.date.today().isoformat() or not rec.get("jwt"):
+            return None
+        from SmartApi import SmartConnect
+        api = SmartConnect(api_key=self.creds.api_key, access_token=rec["jwt"],
+                           refresh_token=rec.get("refresh"), feed_token=rec.get("feed"))
+        try:
+            prof = api.getProfile(rec.get("refresh"))
+        except Exception:
+            return None
+        return api if prof and prof.get("status") else None
+
+    def _save_session(self, resp: dict) -> None:
+        if not self.session_cache:
+            return
+        d = resp.get("data") or {}
+        jwt = d.get("jwtToken") or ""
+        if jwt.startswith("Bearer "):           # the SDK returns it prefixed, and prefixes it again on use
+            jwt = jwt[len("Bearer "):]
+        rec = {"date": dt.date.today().isoformat(), "jwt": jwt,
+               "refresh": d.get("refreshToken"), "feed": d.get("feedToken")}
+        os.makedirs(os.path.dirname(self.session_cache) or ".", exist_ok=True)
+        fd_ = os.open(self.session_cache, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd_, "w") as fh:
+            json.dump(rec, fh)
 
     def login(self) -> None:
         try:
@@ -134,13 +170,19 @@ class AngelClient:
             import pyotp
         except ImportError as e:
             raise FetchError("pip install -r requirements-fetch.txt") from e
+        cached = self._load_cached_session()
+        if cached is not None:
+            self._api = cached
+            LOG.info("reusing today's session token")
+            return
         api = SmartConnect(api_key=self.creds.api_key)
         totp = pyotp.TOTP(self.creds.totp_secret).now()
         resp = api.generateSession(self.creds.client_code, self.creds.mpin, totp)
         if not resp or not resp.get("status"):
             raise FetchError(f"login failed: {resp.get('message') if resp else 'no response'}")
         self._api = api
-        LOG.info("logged in")
+        self._save_session(resp)
+        LOG.info("logged in (new session)")
 
     def _space(self) -> None:
         wait = self.min_interval - (time.monotonic() - self._last_call)
@@ -635,7 +677,9 @@ def main() -> int:
     client: Optional[AngelClient] = None
     if not args.offline:
         creds = Credentials.from_env(args.env)
-        client = AngelClient(creds, min_interval=args.min_interval)
+        client = AngelClient(creds, min_interval=args.min_interval,
+                             session_cache=os.path.join(os.path.dirname(args.cache_dir.rstrip("/")),
+                                                        "angel_session.json"))
         client.login()
 
     master = ScripMaster.load(args.cache_dir, offline=args.offline)

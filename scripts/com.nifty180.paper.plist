@@ -13,9 +13,9 @@
   <string>__PROJECT__</string>
   <key>EnvironmentVariables</key>
   <dict><key>PATH</key><string>__NODEBIN__:/usr/local/bin:/usr/bin:/bin</string></dict>
-  <!-- every 10 minutes; the script itself exits outside Mon-Fri 09:17-15:45 -->
+  <!-- every 5 minutes; the script itself exits outside Mon-Fri 09:17-15:45 -->
   <key>StartInterval</key>
-  <integer>600</integer>
+  <integer>300</integer>
   <key>StandardOutPath</key>
   <string>__PROJECT__/data/raw/launchd_paper.log</string>
   <key>StandardErrorPath</key>

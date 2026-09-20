@@ -96,7 +96,8 @@ def main() -> int:
 
     client = None
     if not args.simulate:
-        client = fd.AngelClient(fd.Credentials.from_env(os.path.join(HERE, ".env")))
+        client = fd.AngelClient(fd.Credentials.from_env(os.path.join(HERE, ".env")),
+                                session_cache=os.path.join(HERE, "data", "raw", "angel_session.json"))
         client.login()
     master = fd.ScripMaster.load(args.cache_dir, offline=args.simulate)
     cache = fd.ChunkCache(args.cache_dir)
