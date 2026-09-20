@@ -379,7 +379,10 @@ const ovPos = i => {             // tick index -> overview position (nearest)
   return lo;
 };
 function setupCanvas(c) {
-  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.getAttribute("height") | 0;
+  // remember the CSS height once: c.height below overwrites the attribute with the
+  // DPR-scaled value, so reading it back on the next render would compound
+  if (!c.dataset.h) c.dataset.h = c.getAttribute("height");
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.dataset.h | 0;
   c.width = w * dpr; c.height = h * dpr; c.style.height = h + "px";
   const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
   return { g, w, h };
