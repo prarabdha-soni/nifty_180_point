@@ -60,6 +60,9 @@ scripts/scheduled_fetch.sh      weekday-evening fetch + rebuild + validate (neve
 scripts/install_schedule.sh     installs it as launchd agent com.nifty180.fetch (--run-now, --remove)
 scripts/com.nifty180.fetch.plist  launchd template (__PROJECT__ substituted by the installer)
 scripts/deploy_report.sh   regenerate results/report.html and deploy it to Vercel (static, no password)
+paper_trade.py             paper-trading day: today's candles so far -> engine from FLAT -> deploy/paper.html
+scripts/paper_day.sh       10-min poll wrapper (Mon-Fri 09:17-15:45 IST guard; FORCE=1 to bypass)
+scripts/com.nifty180.paper.plist  launchd agent for it (StartInterval 600)
 deploy/                    Vercel project dir (vercel.json; index.html and .vercel/ are generated, gitignored)
 ```
 
@@ -131,6 +134,19 @@ owner's account, deployed with `scripts/deploy_report.sh` (reads only
 `VERCEL_TOKEN` from `.env`). Owner chose NO password: the URL is unlisted and
 `noindex`, but anyone holding it can see the trades. Nothing else runs on
 Vercel — fetch and backtests stay on the Mac; redeploy after re-running.
+
+**Paper trading (added 2026-09-20):** https://nifty-180-report.vercel.app/paper —
+`paper_trade.py` re-runs the engine every 10 minutes during the session on the
+day's complete 1-min bars (OHLC-expanded), reference session = previous
+trading day (warm-up), **starting FLAT at the open** (a position the strategy
+would be carrying from the holdout period is deliberately not reconstructed),
+runs ALWAYS and FLAT_ONLY with `close_at_dataset_end=False`, and publishes a
+page with a live status box (position, MFE, stops, next entry triggers).
+Read-only: only `getCandleData` is called; the project has no order code.
+Logs: `data/raw/paper_day.log`, `data/raw/paper.log`. Results:
+`results/paper/<date>/`. Dry run: `python paper_trade.py --date D --simulate --as-of HH:MM --no-deploy`.
+Expect many days with zero trades: an entry needs a 180-point reversal from
+the previous session's extremes.
 
 `make_report.py` re-runs each result dir's `config.json` on its data file through a
 `Backtester` subclass that records state after every `on_spot_tick` (nothing in

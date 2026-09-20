@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.nifty180.paper</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__PROJECT__/scripts/paper_day.sh</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__PROJECT__</string>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>__NODEBIN__:/usr/local/bin:/usr/bin:/bin</string></dict>
+  <!-- every 10 minutes; the script itself exits outside Mon-Fri 09:17-15:45 -->
+  <key>StartInterval</key>
+  <integer>600</integer>
+  <key>StandardOutPath</key>
+  <string>__PROJECT__/data/raw/launchd_paper.log</string>
+  <key>StandardErrorPath</key>
+  <string>__PROJECT__/data/raw/launchd_paper.log</string>
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>

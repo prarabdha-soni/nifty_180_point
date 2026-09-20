@@ -86,10 +86,30 @@ def replay_state_track(run_dir: str, data_path: str) -> Optional[dict]:
     market = MarketData.from_merged_csv(data_path, cfg)
     bt = Recorder(cfg)
     res = bt.run(market)
-    closed = [t for t in res.trades if t.exit_reason != "DATASET_END"]
+    closed = [t for t in res.trades if t.is_closed and t.exit_reason != "DATASET_END"]
+    fs = res.final_state
+    D = cfg.swing_distance
+    final = {
+        "t": to_epoch(fs.timestamp) if getattr(fs, "timestamp", None) else None,
+        "pos": int(fs.position), "trade_id": fs.trade_id,
+        "entry": None if fs.spot_entry_price is None else round(fs.spot_entry_price, 2),
+        "entry_fut": None if fs.futures_entry_price is None else round(fs.futures_entry_price, 2),
+        "entry_t": to_epoch(fs.entry_timestamp) if fs.entry_timestamp else None,
+        "qty": fs.qty, "mfe": round(fs.mfe_points, 2), "mae": round(fs.mae_points, 2),
+        "early_stop": bool(fs.early_stop_active), "partial_done": bool(fs.partial_done),
+        "gap_regime": bool(fs.gap_regime), "deferred": bool(fs.deferred_flip_active),
+        "deferred_price": fs.deferred_flip_price,
+        "running_high": fs.running_high, "running_low": fs.running_low,
+        "long_trigger": None if fs.running_low is None else round(fs.running_low + D, 2),
+        "short_trigger": None if fs.running_high is None else round(fs.running_high - D, 2),
+        "pending_side": None if fs.pending_side is None else int(fs.pending_side),
+        "pending_level": fs.pending_spot_level,
+        "consecutive_early_stops": fs.consecutive_early_stops,
+        "last_spot": fs.last_spot, "last_fut": fs.last_futures,
+    }
     return {"fields": ["t", "pos", "trade_id", "entry", "mfe", "early_stop", "gap_regime",
                        "deferred", "deferred_price", "partial_done", "pending_level", "pending_side"],
-            "rows": bt.track,
+            "rows": bt.track, "final": final,
             "replay_trades": len(closed),
             "replay_net": round(sum(t.net_pnl for t in closed), 2)}
 
@@ -136,7 +156,13 @@ def load_run(label: str, path: str) -> dict:
     if os.path.exists(os.path.join(path, "config.json")):
         with open(os.path.join(path, "config.json")) as fh:
             cfg = json.load(fh)
-    trades = pd.read_csv(os.path.join(path, "trades.csv"))
+    try:
+        trades = pd.read_csv(os.path.join(path, "trades.csv"))
+    except pd.errors.EmptyDataError:          # engine writes a headerless file when nothing closed
+        trades = pd.DataFrame()
+    if "completed_trades" not in metrics:      # minimal metrics.json for a run with no closed trades
+        metrics = {"completed_trades": 0, "total_net_pnl": 0.0, "total_gross_pnl": 0.0,
+                   "total_transaction_costs": 0.0, "diagnostics": {}, **metrics}
     tlist: List[dict] = []
     for _, r in trades.iterrows():
         d = {k: clean(r[k]) for k in trades.columns}
@@ -146,8 +172,13 @@ def load_run(label: str, path: str) -> dict:
         tlist.append(d)
     events: List[dict] = []
     ep = os.path.join(path, "events.csv")
+    ev = None
     if os.path.exists(ep):
-        ev = pd.read_csv(ep)
+        try:
+            ev = pd.read_csv(ep)
+        except pd.errors.EmptyDataError:
+            ev = None
+    if ev is not None and len(ev.columns):
         skip = {"timestamp", "event", "session"}
         for _, r in ev.iterrows():
             info = ", ".join(f"{k}={clean(r[k])}" for k in ev.columns
@@ -170,6 +201,8 @@ def main() -> int:
     ap.add_argument("--data", required=True, help="the tick/bar CSV the runs were made on (default per run)")
     ap.add_argument("--out", default="results/report.html")
     ap.add_argument("--title", default="NIFTY 180-Point Swing — Backtest Report")
+    ap.add_argument("--live", action="store_true",
+                    help="paper-trading page: banner, live status box, open position drawn")
     ap.add_argument("--no-replay", action="store_true",
                     help="skip re-running the engine to record per-tick state (trade view then "
                          "reconstructs levels from the rules, which ignores gap suspension and R6)")
@@ -193,8 +226,8 @@ def main() -> int:
             tr = replay_state_track(path, data_path)
             if tr is not None:
                 m = r["metrics"]
-                ok = (tr["replay_trades"] == m.get("completed_trades")
-                      and abs(tr["replay_net"] - float(m.get("total_net_pnl", 0))) < 1.0)
+                ok = (tr["replay_trades"] == m.get("completed_trades", 0)
+                      and abs(tr["replay_net"] - float(m.get("total_net_pnl", 0) or 0)) < 1.0)
                 print(f"  replayed {label}: {tr['replay_trades']} trades, net {tr['replay_net']:,.0f} "
                       f"-> {'matches' if ok else 'DOES NOT MATCH'} the saved run "
                       f"({len(tr['rows'])} state records)")
@@ -219,6 +252,7 @@ def main() -> int:
                    "A": p.get("early_arm_distance", 60), "P": p.get("partial_profit_distance", 140),
                    "T": p.get("trail_distance", 180), "q": p.get("partial_fraction", 0.5)},
         "runs": runs,
+        "live": bool(args.live),
     }
     html = TEMPLATE.replace("__TITLE__", args.title).replace(
         "__DATA__", json.dumps(payload, separators=(",", ":")))
@@ -292,6 +326,9 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--hover)} tbody tr.sel{ba
 .events{font-size:12px;color:var(--muted);margin-top:8px;max-height:180px;overflow:auto}
 .events div{padding:2px 0;border-bottom:1px dashed var(--grid)}
 .note{font-size:12.5px;color:var(--muted);margin-top:8px}
+.status{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px 16px;font-size:13px}
+.status .k{color:var(--muted);font-size:11.5px}
+.status .v{font-weight:600;font-variant-numeric:tabular-nums}
 .badge{display:inline-block;padding:1px 6px;border-radius:6px;font-size:11px;border:1px solid var(--line);color:var(--muted);margin-left:4px}
 </style>
 </head>
@@ -299,6 +336,12 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--hover)} tbody tr.sel{ba
 <div class="wrap">
   <h1>__TITLE__</h1>
   <div class="sub" id="sub"></div>
+  <div id="banner" class="panel" style="display:none;border-color:var(--arm);margin-top:10px">
+    <b>PAPER TEST — nothing is traded.</b> The engine is re-run every few minutes on the day's candles as
+    they arrive, starting FLAT at the open with the previous session as reference. No order is ever sent;
+    this project contains no order code. The last, still-forming minute is left out.
+  </div>
+  <div id="status" class="panel" style="display:none"></div>
   <div class="runs" id="runs"></div>
   <div class="tiles" id="tiles"></div>
 
@@ -418,13 +461,13 @@ function renderHeader() {
   DATA.runs.forEach((r, i) => { const b = document.createElement("button"); b.textContent = r.label;
     const c = r.config || {}; b.title = `extreme_tracking=${c.extreme_tracking} gap_retirement_mfe_mode=${c.gap_retirement_mfe_mode}`;
     b.className = i === run ? "on" : ""; b.onclick = () => { run = i; selected = null; renderAll(); }; rb.appendChild(b); });
-  const m = R.metrics, d = m.diagnostics || {};
+  const m = R.metrics, d = m.diagnostics || {}, has = m.completed_trades > 0;
   const tiles = [
     ["Net P&L", money(m.total_net_pnl), m.total_net_pnl], ["Gross P&L", money(m.total_gross_pnl), m.total_gross_pnl],
-    ["Costs", money(m.total_transaction_costs)], ["Trades", m.completed_trades],
-    ["Win rate", (m.win_rate * 100).toFixed(1) + "%"], ["Profit factor", num(m.profit_factor, 2)],
-    ["Expectancy / trade", money(m.expectancy_per_trade), m.expectancy_per_trade],
-    ["Max drawdown", money(m.maximum_drawdown)], ["Avg hold", (m.average_holding_time_seconds / 3600).toFixed(1) + " h"],
+    ["Costs", money(m.total_transaction_costs)], ["Trades", m.completed_trades ?? 0],
+    ["Win rate", has ? (m.win_rate * 100).toFixed(1) + "%" : "—"], ["Profit factor", has ? num(m.profit_factor, 2) : "—"],
+    ["Expectancy / trade", has ? money(m.expectancy_per_trade) : "—", m.expectancy_per_trade],
+    ["Max drawdown", has ? money(m.maximum_drawdown) : "—"], ["Avg hold", has ? (m.average_holding_time_seconds / 3600).toFixed(1) + " h" : "—"],
     ["Trail exits W / L", `${d.trail_exits_winning ?? "—"} / ${d.trail_exits_losing ?? "—"}`],
     ["Breaker episodes", d.breaker_episodes ?? "—"], ["Adverse-gap exits", d.adverse_gap_exits ?? "—"],
   ];
@@ -472,6 +515,17 @@ function renderOverview() {
     g.strokeStyle = css(tr.net_pnl >= 0 ? "--long" : "--short"); g.lineWidth = 1.6; g.beginPath();
     g.moveTo(xx - 4, yx - 4); g.lineTo(xx + 4, yx + 4); g.moveTo(xx + 4, yx - 4); g.lineTo(xx - 4, yx + 4); g.stroke();
     marks.push({ x: xe, y: ye, tr, kind: "entry" }, { x: xx, y: yx, tr, kind: "exit" });
+  }
+  const f = DATA.runs[run].track && DATA.runs[run].track.final;
+  if (f && f.pos && f.entry_t) {
+    const pe = ovPos(idxAt(f.entry_t)), xe = X(pe), ye = Y(f.entry);
+    g.fillStyle = css("--sel"); g.fillRect(xe, Tp, X(n - 1) - xe, B - Tp);
+    g.fillStyle = css(f.pos > 0 ? "--long" : "--short"); g.beginPath();
+    if (f.pos > 0) { g.moveTo(xe, ye - 9); g.lineTo(xe - 5, ye - 1); g.lineTo(xe + 5, ye - 1); }
+    else { g.moveTo(xe, ye + 9); g.lineTo(xe - 5, ye + 1); g.lineTo(xe + 5, ye + 1); }
+    g.closePath(); g.fill();
+    const lab = `OPEN ${f.pos > 0 ? "LONG" : "SHORT"} @ ${num(f.entry)}`; g.font = "11px system-ui"; g.textBaseline = "top";
+    const fits = xe + 8 + g.measureText(lab).width < R; g.textAlign = fits ? "left" : "right"; g.fillText(lab, fits ? xe + 8 : xe - 8, Tp + 4);
   }
   ovState = { L, R, Tp, B, n, X, Y, marks, trades };
 }
@@ -551,7 +605,10 @@ function renderTable() {
 // ---------- trade detail ----------
 function renderDetail() {
   const R = DATA.runs[run]; const trades = R.trades;
-  if (!trades.length) return;
+  if (!trades.length) { setupCanvas(document.getElementById("dt"));
+    document.getElementById("kv").innerHTML = "<div>Trades</div><div>none completed yet</div>";
+    document.getElementById("ev").innerHTML = ""; document.getElementById("howto").textContent =
+      "No completed trade to show. The status box at the top shows the open position, if any, and the prices that would trigger the next entry."; return; }
   const tr = trades.find(t => t.trade_id === selected) || trades[0]; selected = tr.trade_id;
   const dir = tr.direction === "LONG" ? 1 : -1;
   const i0 = Math.max(0, idxAt(tr.entry_datetime) - 240), i1 = Math.min(N - 1, idxAt(tr.exit_datetime) + 120);
@@ -655,7 +712,31 @@ function renderDetail() {
     `How to read it: the trade opened ${tr.direction} at <b>${num(E)}</b>. If price ${opp} ${P.S} points to the red line before it ever ${side} ${P.A} to the amber line, the early stop closes it and the engine reverses. Once the amber line is touched the red line is switched off for good. Touching the purple line closes half. From the moment the amber line is touched, the blue trailing stop follows the best price at a distance of ${P.T}; touching it closes the rest. Inside an amber band the engine is in the favourable-gap regime and the trailing stop is switched off (the dashed grey line shows where it would be); when the regime ends the engine rebases MFE (R6), which is why the blue line can jump. ${recorded ? "Levels are taken from the engine's recorded state, not re-derived." : "Levels are reconstructed from the rules (no recorded state)."}`;
 }
 
-function renderAll() { useDataset(DATA.runs[run].data); renderHeader(); renderOverview(); renderEquity(); renderTable(); renderDetail(); }
+function renderStatus() {
+  const box = document.getElementById("status"), ban = document.getElementById("banner");
+  if (!DATA.live) { box.style.display = "none"; ban.style.display = "none"; return; }
+  ban.style.display = "block";
+  const R = DATA.runs[run], f = R.track && R.track.final;
+  if (!f) { box.style.display = "none"; return; }
+  const side = f.pos > 0 ? "LONG" : f.pos < 0 ? "SHORT" : "FLAT";
+  const openR = f.pos && f.last_spot != null && f.entry != null ? (f.last_spot - f.entry) * f.pos : null;
+  const items = [
+    ["As of (last complete minute)", fmtT(T.t[N - 1])], ["Spot / futures", `${num(T.s[N - 1])} / ${num(T.f[N - 1])}`],
+    ["Position", side + (f.pos ? ` · qty ${f.qty} · since ${fmtT(f.entry_t)}` : "")],
+  ];
+  if (f.pos) items.push(["Entry spot / fut", `${num(f.entry)} / ${num(f.entry_fut)}`],
+    ["Open P&L (spot pts)", `${openR >= 0 ? "+" : ""}${num(openR, 1)}`],
+    ["Best / worst so far", `+${num(f.mfe, 1)} / ${num(f.mae, 1)}`],
+    ["Early stop", f.early_stop ? `ON at ${num(f.entry - f.pos * P.S)}` : "off (armed)"],
+    ["Partial", f.partial_done ? "done" : `pending at ${num(f.entry + f.pos * P.P)}`],
+    ["Trailing stop", f.mfe >= P.A ? `${num(f.entry + f.pos * (f.mfe - P.T))}${f.gap_regime ? " (suspended: gap regime)" : ""}` : "not armed yet"],
+    ["Breaker", f.deferred ? `ENGAGED · deferred flip at ${num(f.deferred_price)}` : `off · consecutive early stops ${f.consecutive_early_stops}`]);
+  else items.push(["Next LONG entry if spot ≥", num(f.long_trigger)], ["Next SHORT entry if spot ≤", num(f.short_trigger)],
+    ["Pending", f.pending_side ? `${f.pending_side > 0 ? "LONG" : "SHORT"} spot-triggered at ${num(f.pending_level)}, waiting for futures confirmation` : "none"]);
+  box.style.display = "block";
+  box.innerHTML = `<div class="status">${items.map(([k, v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join("")}</div>`;
+}
+function renderAll() { useDataset(DATA.runs[run].data); renderStatus(); renderHeader(); renderOverview(); renderEquity(); renderTable(); renderDetail(); }
 window.addEventListener("resize", () => { renderOverview(); renderEquity(); renderDetail(); });
 renderAll();
 </script>
