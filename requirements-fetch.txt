@@ -1,0 +1,10 @@
+# extra dependencies for fetch_data.py (the engine itself only needs requirements.txt)
+smartapi-python>=1.4
+# smartapi-python imports these but does not declare them:
+logzero>=1.7
+websocket-client>=1.6
+pyotp>=2.8
+python-dotenv>=1.0
+requests>=2.28
+# macOS system Python 3.9 is built against LibreSSL; urllib3 v2 warns/breaks on it
+urllib3<2

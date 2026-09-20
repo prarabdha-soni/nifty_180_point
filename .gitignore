@@ -1,0 +1,29 @@
+# credentials
+.env
+.env.*
+!.env.example
+
+# environment / caches
+.venv/
+__pycache__/
+.pytest_cache/
+.DS_Store
+
+# raw API cache, logs, downloaded market data (large; regenerate with fetch_data.py)
+data/raw/
+data/*.csv
+!data/references_template.csv
+
+# backtest outputs
+results/
+results_*/
+
+# generated reports / validation output
+data/*.json
+data/*.log
+
+# original engine archive (the extracted tree is the repo; keep the tarball locally)
+nifty_v1_engine.tar.gz
+
+# SmartAPI SDK log directory (may contain session details)
+logs/
