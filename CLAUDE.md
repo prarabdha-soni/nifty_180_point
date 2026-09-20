@@ -59,6 +59,8 @@ overrides/               JSON config overrides for the R2 / R6 comparison runs
 scripts/scheduled_fetch.sh      weekday-evening fetch + rebuild + validate (never splits/backtests)
 scripts/install_schedule.sh     installs it as launchd agent com.nifty180.fetch (--run-now, --remove)
 scripts/com.nifty180.fetch.plist  launchd template (__PROJECT__ substituted by the installer)
+scripts/deploy_report.sh   regenerate results/report.html and deploy it to Vercel (static, no password)
+deploy/                    Vercel project dir (vercel.json; index.html and .vercel/ are generated, gitignored)
 ```
 
 Note: the top-level `backtester.py` and `config.py` are byte-identical stray
@@ -123,6 +125,13 @@ python compare_runs.py ALWAYS=results/insample_always FLAT_ONLY=results/insample
 python make_report.py --data data/nifty_3y_insample.csv ALWAYS=results/insample_always FLAT_ONLY=results/insample_flat_only \
     "ALWAYS (favourable-first)=results/insample_always_favfirst@data/nifty_3y_favfirst_insample.csv" --out results/report.html
 ```
+**Dashboard (deployed 2026-09-20):** https://nifty-180-report.vercel.app — the
+report as a static page on Vercel, project `nifty-180-report` under the
+owner's account, deployed with `scripts/deploy_report.sh` (reads only
+`VERCEL_TOKEN` from `.env`). Owner chose NO password: the URL is unlisted and
+`noindex`, but anyone holding it can see the trades. Nothing else runs on
+Vercel — fetch and backtests stay on the Mac; redeploy after re-running.
+
 `make_report.py` re-runs each result dir's `config.json` on its data file through a
 `Backtester` subclass that records state after every `on_spot_tick` (nothing in
 `strategy/` is touched) and refuses the state track if the replay does not

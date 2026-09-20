@@ -27,3 +27,7 @@ nifty_v1_engine.tar.gz
 
 # SmartAPI SDK log directory (may contain session details)
 logs/
+
+# vercel deploy artefacts (generated page + project link)
+deploy/index.html
+.vercel/
