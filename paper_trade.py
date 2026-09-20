@@ -40,7 +40,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import fetch_data as fd  # noqa: E402
 
-PY = os.path.join(HERE, ".venv", "bin", "python")
+PY = sys.executable
 
 
 def previous_trading_day(cache: fd.ChunkCache, spot: fd.Contract, date: dt.date,
@@ -180,8 +180,23 @@ def main() -> int:
                     token = line.split("=", 1)[1].strip()
         if not token:
             raise fd.FetchError("VERCEL_TOKEN missing from .env")
+        ddir = os.path.join(HERE, "deploy")
+        # a Vercel deploy replaces every file, so the main report must ride along.
+        # On a fresh checkout (CI) it is not on disk: take the live copy, and refuse
+        # to deploy if that fails rather than publish a site without it.
+        idx = os.path.join(ddir, "index.html")
+        if not os.path.exists(idx):
+            got = subprocess.run(["curl", "-sf", "-o", idx, "https://nifty-180-report.vercel.app/"],
+                                 capture_output=True)
+            if got.returncode != 0 or not os.path.exists(idx) or os.path.getsize(idx) < 100_000:
+                raise fd.FetchError("could not fetch the live index.html to keep it in the deploy")
+        if not os.path.exists(os.path.join(ddir, ".vercel", "project.json")):
+            lk = subprocess.run(["vercel", "link", "--yes", "--project", "nifty-180-report",
+                                 "--token", token], cwd=ddir, capture_output=True, text=True)
+            if lk.returncode != 0:
+                raise fd.FetchError(f"vercel link failed: {lk.stderr[-300:]}")
         out = subprocess.run(["vercel", "deploy", "--prod", "--yes", "--token", token],
-                             cwd=os.path.join(HERE, "deploy"), capture_output=True, text=True)
+                             cwd=ddir, capture_output=True, text=True)
         if out.returncode != 0:
             raise fd.FetchError(f"vercel deploy failed: {out.stderr[-400:]}")
         log.info("deployed -> https://nifty-180-report.vercel.app/paper")

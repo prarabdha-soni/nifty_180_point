@@ -14,7 +14,7 @@
 set -uo pipefail
 
 PROJECT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # wherever the repo lives
-PY="$PROJECT/.venv/bin/python"
+PY="${PYTHON:-$PROJECT/.venv/bin/python}"
 START="2023-09-20"        # fixed: history accumulates from here; do not let it slide with the date
 LOG="$PROJECT/data/raw/scheduled_fetch.log"
 

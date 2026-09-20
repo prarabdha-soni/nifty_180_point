@@ -9,8 +9,10 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 
-# raw API cache, logs, downloaded market data (large; regenerate with fetch_data.py)
-data/raw/
+# downloaded market data CSVs (regenerated from the cache); logs and session token
+data/raw/*
+!data/raw/angel/
+data/raw/angel/scrip_master.json
 data/*.csv
 !data/references_template.csv
 

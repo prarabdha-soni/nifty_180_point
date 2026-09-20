@@ -1,0 +1,72 @@
+name: paper-trading page
+
+# Runs the V1 engine on today's candles and republishes /paper. Nothing is
+# traded: the only broker call is getCandleData. Cron is UTC: 03:00-10:59 UTC
+# covers 08:30-16:29 IST; scripts/paper_day.sh itself exits outside
+# Mon-Fri 09:17-15:45 IST. GitHub may start scheduled runs a few minutes late.
+on:
+  schedule:
+    - cron: "*/10 3-10 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      args:
+        description: "extra paper_trade.py args, e.g. --date 2026-09-18 --as-of 15:30"
+        default: ""
+      force:
+        description: "1 = ignore the market-hours guard"
+        default: "0"
+
+concurrency:
+  group: paper
+  cancel-in-progress: false
+
+env:
+  TZ: Asia/Kolkata
+  PYTHON: python
+
+jobs:
+  paper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-fetch.txt
+      - run: pip install -q -r requirements.txt -r requirements-fetch.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm i -g vercel@48 >/dev/null
+      - name: restore today's broker session token
+        uses: actions/cache/restore@v4
+        with:
+          path: data/raw/angel_session.json
+          key: angel-session-${{ github.run_id }}
+          restore-keys: angel-session-
+      - name: credentials
+        run: |
+          umask 077
+          printf 'ANGEL_API_KEY=%s\nANGEL_CLIENT_CODE=%s\nANGEL_MPIN=%s\nANGEL_TOTP_SECRET=%s\nVERCEL_TOKEN=%s\n' \
+            "${{ secrets.ANGEL_API_KEY }}" "${{ secrets.ANGEL_CLIENT_CODE }}" "${{ secrets.ANGEL_MPIN }}" \
+            "${{ secrets.ANGEL_TOTP_SECRET }}" "${{ secrets.VERCEL_TOKEN }}" > .env
+      - name: poll
+        env:
+          FORCE: ${{ github.event.inputs.force || '0' }}
+        run: |
+          set +e
+          bash scripts/paper_day.sh ${{ github.event.inputs.args }}
+          rc=$?
+          echo "--- paper_day.log ---"; tail -n 40 data/raw/paper_day.log || true
+          # 3 = session not started / no complete bar yet: not a failure
+          [ "$rc" = "0" ] || [ "$rc" = "3" ]
+      - name: save broker session token
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/raw/angel_session.json
+          key: angel-session-${{ github.run_id }}
