@@ -419,9 +419,14 @@ def fetch_series(client: Optional[AngelClient], cache: ChunkCache, contract: Con
                         contract.label, i, len(chunks), a, b)
             continue
         else:
+            # blocks are fixed calendar ranges and may extend past today; the API
+            # rejects future dates, so ask only up to now
+            b_req = min(b, today)
+            end_req = min(dt.datetime.combine(b_req, dt.time(15, 30)),
+                          dt.datetime.now().replace(second=0, microsecond=0))
             data = client.candles(contract.exchange, contract.token,
-                                  dt.datetime.combine(a, SESSION_START),
-                                  dt.datetime.combine(b, dt.time(15, 30)))
+                                  dt.datetime.combine(a, SESSION_START), end_req) \
+                if end_req > dt.datetime.combine(a, SESSION_START) else []
             final = b < today                       # today's bars may still grow
             cache.put(contract, a, b, data, final)
             n_fetched += 1

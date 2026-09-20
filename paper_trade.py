@@ -8,16 +8,17 @@ call is getCandleData (read-only); this project contains no order code.
     python paper_trade.py --no-deploy           # same, local only
     python paper_trade.py --date 2026-09-18 --simulate --as-of 11:30   # dry run from cache
 
-Each run is a full re-run from a clean state:
-  * reference session = the previous trading day (its bars give the
-    previous-session high/low/close the strategy needs); it is a warm-up,
-    no trading in it
-  * trading session  = --date, from 09:15 to the last COMPLETE minute
-    (the still-forming minute is dropped, so a trade never appears on a bar
-    whose close is not known yet)
-  * the engine starts FLAT at the open. A position the strategy would have
-    been carrying from earlier days is not reconstructed -- that would mean
-    running the holdout period, which is off limits.
+Each run is a full, continuous re-run from --start (default 2026-09-18, the
+first paper day) through --date:
+  * the trading day before --start is the warm-up (reference levels only)
+  * every session from --start to yesterday comes from the bar cache
+    (data/raw/angel/, committed daily by the fetch job); today's bars come
+    from the API, up to the last COMPLETE minute (the forming minute is
+    dropped, so a trade never appears on a bar whose close is not known)
+  * positions carry overnight exactly as the strategy intends -- Monday opens
+    with whatever Friday left open, and the gap rules apply at 09:16.
+    The run does NOT reach back before --start: reconstructing the state the
+    strategy would have had from the holdout period is off limits.
   * two runs: the V1 default (extreme_tracking=ALWAYS) and FLAT_ONLY (R2),
     both with close_at_dataset_end=False so an open position stays open in
     the ledger instead of being closed as DATASET_END.
@@ -54,27 +55,12 @@ def previous_trading_day(cache: fd.ChunkCache, spot: fd.Contract, date: dt.date,
     return days[-1]
 
 
-def day_bars(client, cache: fd.ChunkCache, contract: fd.Contract, day: dt.date,
-             offline: bool) -> pd.DataFrame:
-    """One session's 1-min bars: from the cache when offline, else straight from the API."""
-    if offline:
-        df = fd.fetch_series(None, cache, contract, day, day, 25, True, dt.date.today())
-    else:
-        start = dt.datetime.combine(day, dt.time(9, 15))
-        end = min(dt.datetime.combine(day, dt.time(15, 30)), dt.datetime.now().replace(second=0, microsecond=0))
-        if end <= start:                       # session has not started yet (API rejects future ranges)
-            return fd.candles_to_frame([])
-        data = client.candles(contract.exchange, contract.token, start, end)
-        df = fd.candles_to_frame(data)
-    if len(df):
-        df = df[df["timestamp"].dt.date == day].reset_index(drop=True)
-    return df
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--date", type=dt.date.fromisoformat, default=dt.date.today())
+    ap.add_argument("--start", type=dt.date.fromisoformat, default=dt.date(2026, 9, 18),
+                    help="first paper trading day; the run is continuous from here (default 2026-09-18)")
     ap.add_argument("--as-of", default=None, help="HH:MM -- ignore bars at/after this time")
     ap.add_argument("--simulate", action="store_true", help="offline: bars from the chunk cache only")
     ap.add_argument("--no-deploy", action="store_true")
@@ -111,24 +97,27 @@ def main() -> int:
     if not contracts:
         raise fd.FetchError("no futures contract with expiry >= session date")
 
-    ref_day = previous_trading_day(cache, spot_c, date, args.simulate, client)
-    log.info("reference session %s, trading session %s", ref_day, date)
+    start = min(args.start, date)
+    ref_day = previous_trading_day(cache, spot_c, start, args.simulate, client)
+    log.info("warm-up %s, paper run %s .. %s (continuous, positions carried overnight)", ref_day, start, date)
 
-    # bars for both days, spot + every candidate contract (near-month chosen below)
-    spot = pd.concat([day_bars(client, cache, spot_c, ref_day, args.simulate),
-                      day_bars(client, cache, spot_c, date, args.simulate)], ignore_index=True)
+    # whole range in one go: cached blocks for past days, the block holding today
+    # is non-final and is re-fetched from the API each poll (cache used when simulating)
+    today = dt.date.today()
+    spot = fd.fetch_series(client, cache, spot_c, ref_day, date, 25, args.simulate, today)
     fut_by = {}
     for c in contracts[:3]:
-        parts = [day_bars(client, cache, c, ref_day, args.simulate),
-                 day_bars(client, cache, c, date, args.simulate)]
-        fut_by[c] = pd.concat([p for p in parts if len(p)], ignore_index=True) if any(len(p) for p in parts) \
-            else fd.candles_to_frame([])
+        c_start = max(ref_day, c.expiry - dt.timedelta(days=120))
+        if c_start > date:
+            continue
+        fut_by[c] = fd.fetch_series(client, cache, c, c_start, date, 25, args.simulate, today)
     spot = spot[spot["timestamp"] < cutoff].reset_index(drop=True)
     for c in fut_by:
         fut_by[c] = fut_by[c][fut_by[c]["timestamp"] < cutoff].reset_index(drop=True)
     n_today = int((spot["timestamp"].dt.date == date).sum())
-    log.info("spot bars: %d reference, %d today", len(spot) - n_today, n_today)
-    if n_today == 0:
+    n_days = spot["timestamp"].dt.date.nunique()
+    log.info("spot bars: %d sessions, %d bars today", n_days, n_today)
+    if n_today == 0 and date == today:
         log.warning("no complete bars for %s yet -- nothing to run", date)
         return 3
 
@@ -159,7 +148,7 @@ def main() -> int:
         log.info("[%s] completed trades %d, net %s", name, m.get("completed_trades", m.get("trades", 0)),
                  f"{m.get('total_net_pnl', 0):,.0f}")
 
-    title = (f"PAPER TEST — {date} · as of {cutoff.strftime('%H:%M')}"
+    title = (f"PAPER TEST — since {start} · as of {date} {cutoff.strftime('%H:%M')}"
              + (" · DRY RUN from cached bars" if args.simulate else ""))
     page = os.path.join(HERE, "deploy", "paper.html")
     arch_dir = os.path.join(HERE, "deploy", "paper")
@@ -175,8 +164,8 @@ def main() -> int:
         if rc != 0:
             raise fd.FetchError("make_report failed")
     with open(os.path.join(out_dir, "status.json"), "w") as fh:
-        json.dump({"date": date.isoformat(), "as_of": cutoff.isoformat(timespec="minutes"),
-                   "bars_today": n_today, "contract": contract_used, "simulate": args.simulate,
+        json.dump({"date": date.isoformat(), "start": start.isoformat(), "as_of": cutoff.isoformat(timespec="minutes"),
+                   "bars_today": n_today, "sessions": n_days, "contract": contract_used, "simulate": args.simulate,
                    "generated": now.isoformat(timespec="seconds")}, fh, indent=2)
 
     if not args.no_deploy:

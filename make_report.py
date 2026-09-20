@@ -344,9 +344,9 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--hover)} tbody tr.sel{ba
   <h1>__TITLE__</h1>
   <div class="sub" id="sub"></div>
   <div id="banner" class="panel" style="display:none;border-color:var(--arm);margin-top:10px">
-    <b>PAPER TEST — nothing is traded.</b> The engine is re-run every few minutes on the day's candles as
-    they arrive, starting FLAT at the open with the previous session as reference. No order is ever sent;
-    this project contains no order code. The last, still-forming minute is left out.
+    <b>PAPER TEST — nothing is traded.</b> The engine is re-run every few minutes, continuously from the
+    first paper day through the latest complete minute of today, so positions carry overnight exactly as
+    the strategy intends. No order is ever sent; this project contains no order code.
   </div>
   <div id="status" class="panel" style="display:none"></div>
   <div id="archive" class="note" style="display:none"></div>
@@ -743,9 +743,9 @@ function renderStatus() {
   const items = [
     ["As of (last complete minute)", fmtT(T.t[N - 1])], ["Spot / futures", `${num(T.s[N - 1])} / ${num(T.f[N - 1])}`],
     ["Position", side + (f.pos ? ` · qty ${f.qty} · since ${fmtT(f.entry_t)}` : "")],
-    ["Closed trades today", `${closedN} · realised <b class="${realised >= 0 ? "pos" : "neg"}">${money(realised)}</b>`],
+    ["Closed trades (whole paper run)", `${closedN} · realised <b class="${realised >= 0 ? "pos" : "neg"}">${money(realised)}</b>`],
     ["Open position, if closed now", o ? `<b class="${o.net_pnl >= 0 ? "pos" : "neg"}">${money(o.net_pnl)}</b> (${money(o.gross_pnl)} on futures − ${money(o.transaction_cost)} costs)` : "—"],
-    ["Day total", `<b class="${(realised + (o ? o.net_pnl : 0)) >= 0 ? "pos" : "neg"}">${money(realised + (o ? o.net_pnl : 0))}</b>`],
+    ["Total, realised + open", `<b class="${(realised + (o ? o.net_pnl : 0)) >= 0 ? "pos" : "neg"}">${money(realised + (o ? o.net_pnl : 0))}</b>`],
   ];
   if (f.pos) items.push(["Entry spot / fut", `${num(f.entry)} / ${num(f.entry_fut)}`],
     ["Open P&L (spot pts)", `${openR >= 0 ? "+" : ""}${num(openR, 1)}`],
