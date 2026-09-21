@@ -35,3 +35,6 @@ deploy/index.html
 deploy/paper.html
 !deploy/paper/
 .vercel/
+
+# recorded live ticks (large; local only)
+data/ticks/
