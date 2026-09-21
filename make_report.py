@@ -336,6 +336,7 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--hover)} tbody tr.sel{ba
 .events{font-size:12px;color:var(--muted);margin-top:8px;max-height:180px;overflow:auto}
 .events div{padding:2px 0;border-bottom:1px dashed var(--grid)}
 .note{font-size:12.5px;color:var(--muted);margin-top:8px}
+.btn{display:inline-block;background:var(--accent);color:#fff;padding:6px 12px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px}
 .status{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px 16px;font-size:13px}
 .status .k{color:var(--muted);font-size:11.5px}
 .status .v{font-weight:600;font-variant-numeric:tabular-nums}
@@ -347,6 +348,10 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--hover)} tbody tr.sel{ba
   <h1>__TITLE__</h1>
   <div class="sub" id="sub"></div>
   <div id="status" class="panel" style="display:none"></div>
+  <div id="runnow" class="note" style="display:none">
+    <a class="btn" href="https://github.com/prarabdha-soni/nifty_180_point/actions/workflows/evening.yml" target="_blank" rel="noopener">Run now ↗</a>
+    &nbsp; opens GitHub → press <b>Run workflow</b> (needs your GitHub login) → this page refreshes in about 3 minutes with the full day.
+  </div>
   <div id="archive" class="note" style="display:none"></div>
   <div class="runs" id="runs"></div>
   <div class="tiles" id="tiles"></div>
@@ -729,7 +734,9 @@ function tradesOf(R) { const o = openPosition(R); const closed = R.trades.filter
 
 function renderStatus() {
   const box = document.getElementById("status"), arc = document.getElementById("archive");
-  if (!DATA.live) { box.style.display = "none"; arc.style.display = "none"; return; }
+  const rn = document.getElementById("runnow");
+  if (!DATA.live) { box.style.display = "none"; arc.style.display = "none"; rn.style.display = "none"; return; }
+  rn.style.display = "block";
   if (DATA.archive && DATA.archive.length) { arc.style.display = "block";
     arc.innerHTML = "Previous days: " + DATA.archive.slice().reverse().map(d => `<a href="${DATA.archive_url}/${d}">${d}</a>`).join(" · "); }
   const R = DATA.runs[run], f = R.track && R.track.final;

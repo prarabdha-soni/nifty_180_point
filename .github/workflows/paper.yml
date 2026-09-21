@@ -9,8 +9,8 @@ on:
         description: "extra paper_trade.py args, e.g. --date 2026-09-18 --as-of 15:30"
         default: ""
       force:
-        description: "1 = ignore the market-hours guard"
-        default: "0"
+        description: "1 = ignore the market-hours guard (manual runs are intentional)"
+        default: "1"
 
 concurrency:
   group: paper

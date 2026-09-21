@@ -1,0 +1,61 @@
+name: evening update
+
+# One-click end-of-day routine, run by hand from GitHub's "Run workflow" button
+# (linked from the paper page). Does everything the Mac jobs used to do:
+#   1. fetch the day's bars from Angel One, validate, archive today's paper page,
+#      commit them to the repo
+#   2. rebuild and deploy the live paper page from the full day's candles
+# Results are identical to intraday polling: the engine replays the day's
+# candles, so when it runs makes no difference to the trades.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: evening
+  cancel-in-progress: false
+
+env:
+  TZ: Asia/Kolkata
+  PYTHON: python
+  FORCE: "1"
+
+jobs:
+  evening:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-fetch.txt
+      - run: pip install -q -r requirements.txt -r requirements-fetch.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm i -g vercel@48 >/dev/null
+      - name: credentials
+        run: |
+          umask 077
+          printf 'ANGEL_API_KEY=%s\nANGEL_CLIENT_CODE=%s\nANGEL_MPIN=%s\nANGEL_TOTP_SECRET=%s\nVERCEL_TOKEN=%s\n' \
+            "${{ secrets.ANGEL_API_KEY }}" "${{ secrets.ANGEL_CLIENT_CODE }}" "${{ secrets.ANGEL_MPIN }}" \
+            "${{ secrets.ANGEL_TOTP_SECRET }}" "${{ secrets.VERCEL_TOKEN }}" > .env
+          git config user.name "nifty180-bot"
+          git config user.email "actions@users.noreply.github.com"
+      - name: 1. fetch bars, validate, archive, commit
+        run: |
+          bash scripts/scheduled_fetch.sh
+          echo "--- scheduled_fetch.log ---"; tail -n 30 data/raw/scheduled_fetch.log
+      - name: 2. paper page from the full day
+        run: |
+          set +e
+          bash scripts/paper_day.sh
+          rc=$?
+          echo "--- paper_day.log ---"; tail -n 30 data/raw/paper_day.log || true
+          [ "$rc" = "0" ] || [ "$rc" = "3" ]
