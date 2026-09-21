@@ -1,7 +1,7 @@
 #!/bin/bash
 # Paper-trading poll: run paper_trade.py on today's candles and publish /paper.
-# Fired every 5 minutes by launchd (com.nifty180.paper); exits at once outside
-# market hours (Mon-Fri 09:17-15:45 IST) unless FORCE=1. Never places orders.
+# Fired at :02,:07,... 09:22-15:47 by launchd (com.nifty180.paper); exits at once outside
+# market hours (Mon-Fri 09:17-15:48 IST) unless FORCE=1. Never places orders.
 set -uo pipefail
 PROJECT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG="$PROJECT/data/raw/paper_day.log"
@@ -9,7 +9,7 @@ PY="${PYTHON:-$PROJECT/.venv/bin/python}"
 cd "$PROJECT" || exit 1
 mkdir -p data/raw
 dow=$(date +%u); hm=$(date +%H%M)
-if [ "${FORCE:-0}" != "1" ] && { [ "$dow" -gt 5 ] || [ "$hm" -lt 0917 ] || [ "$hm" -gt 1545 ]; }; then
+if [ "${FORCE:-0}" != "1" ] && { [ "$dow" -gt 5 ] || [ "$hm" -lt 0917 ] || [ "$hm" -gt 1548 ]; }; then
   exit 0
 fi
 {
