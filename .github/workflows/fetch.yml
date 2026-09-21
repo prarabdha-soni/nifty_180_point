@@ -39,16 +39,10 @@ jobs:
           printf 'ANGEL_API_KEY=%s\nANGEL_CLIENT_CODE=%s\nANGEL_MPIN=%s\nANGEL_TOTP_SECRET=%s\n' \
             "${{ secrets.ANGEL_API_KEY }}" "${{ secrets.ANGEL_CLIENT_CODE }}" "${{ secrets.ANGEL_MPIN }}" \
             "${{ secrets.ANGEL_TOTP_SECRET }}" > .env
-      - name: fetch + validate
-        run: |
-          bash scripts/scheduled_fetch.sh
-          echo "--- scheduled_fetch.log ---"; tail -n 25 data/raw/scheduled_fetch.log
-      - name: commit the bar cache
+      - name: fetch + validate + commit
         run: |
           git config user.name "nifty180-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data/raw/angel deploy/paper
-          git diff --cached --quiet && echo "no new bars" && exit 0
-          git commit -q -m "data: bars through $(date +%Y-%m-%d)"
-          git pull --rebase -q origin main
-          git push -q origin HEAD:main
+          bash scripts/scheduled_fetch.sh
+          echo "--- scheduled_fetch.log ---"; tail -n 25 data/raw/scheduled_fetch.log
+      # the commit/push is done inside scheduled_fetch.sh (same code path as the Mac job)

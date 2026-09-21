@@ -39,6 +39,19 @@ mkdir -p data/raw
   # 4. permanent paper page for today (from the bars just fetched; exit 3 = no session today)
   "$PY" -W ignore paper_trade.py --simulate --as-of 15:30 --no-deploy --archive 2>&1 | grep -E "wrote|completed trades|ERROR|no complete bars"
   rc_arc=${PIPESTATUS[0]}; [ "$rc_arc" = "3" ] && rc_arc=0
-  echo "=== $(date '+%Y-%m-%d %H:%M:%S') done  fetch=$rc_fetch favfirst=$rc_fav validate=$rc_val archive=$rc_arc ==="
+  # 5. publish the bars + today's archive page to the repo (whichever of Mac / CI runs
+  #    first commits; the other finds nothing new). Skipped when not a git checkout.
+  rc_git=0
+  if [ "${COMMIT_DATA:-1}" = "1" ] && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git add data/raw/angel deploy/paper 2>/dev/null
+    if ! git diff --cached --quiet; then
+      git -c user.name="${GIT_USER:-nifty180-bot}" -c user.email="${GIT_EMAIL:-actions@users.noreply.github.com}" \
+        commit -q -m "data: bars through $(date +%Y-%m-%d)" && \
+      git pull --rebase -q origin main && git push -q origin HEAD:main && echo "pushed data commit" || { rc_git=1; git rebase --abort 2>/dev/null; echo "push failed"; }
+    else
+      echo "no new bars to commit"
+    fi
+  fi
+  echo "=== $(date '+%Y-%m-%d %H:%M:%S') done  fetch=$rc_fetch favfirst=$rc_fav validate=$rc_val archive=$rc_arc git=$rc_git ==="
 } >> "$LOG" 2>&1
 exit $(( rc_fetch != 0 || rc_fav != 0 || rc_val != 0 || rc_arc != 0 ))

@@ -343,11 +343,6 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--hover)} tbody tr.sel{ba
 <div class="wrap">
   <h1>__TITLE__</h1>
   <div class="sub" id="sub"></div>
-  <div id="banner" class="panel" style="display:none;border-color:var(--arm);margin-top:10px">
-    <b>PAPER TEST — nothing is traded.</b> The engine is re-run every few minutes, continuously from the
-    first paper day through the latest complete minute of today, so positions carry overnight exactly as
-    the strategy intends. No order is ever sent; this project contains no order code.
-  </div>
   <div id="status" class="panel" style="display:none"></div>
   <div id="archive" class="note" style="display:none"></div>
   <div class="runs" id="runs"></div>
@@ -730,9 +725,8 @@ function openPosition(R) {
 function tradesOf(R) { const o = openPosition(R); const closed = R.trades.filter(t => t.exit_datetime != null); return o ? closed.concat([o]) : closed; }
 
 function renderStatus() {
-  const box = document.getElementById("status"), ban = document.getElementById("banner"), arc = document.getElementById("archive");
-  if (!DATA.live) { box.style.display = "none"; ban.style.display = "none"; arc.style.display = "none"; return; }
-  ban.style.display = "block";
+  const box = document.getElementById("status"), arc = document.getElementById("archive");
+  if (!DATA.live) { box.style.display = "none"; arc.style.display = "none"; return; }
   if (DATA.archive && DATA.archive.length) { arc.style.display = "block";
     arc.innerHTML = "Previous days: " + DATA.archive.slice().reverse().map(d => `<a href="${DATA.archive_url}/${d}">${d}</a>`).join(" · "); }
   const R = DATA.runs[run], f = R.track && R.track.final;

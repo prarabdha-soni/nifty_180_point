@@ -8,8 +8,8 @@ call is getCandleData (read-only); this project contains no order code.
     python paper_trade.py --no-deploy           # same, local only
     python paper_trade.py --date 2026-09-18 --simulate --as-of 11:30   # dry run from cache
 
-Each run is a full, continuous re-run from --start (default 2026-09-18, the
-first paper day) through --date:
+Each run is a full, continuous re-run from --start (default 2026-09-21, the
+first paper day, started flat) through --date:
   * the trading day before --start is the warm-up (reference levels only)
   * every session from --start to yesterday comes from the bar cache
     (data/raw/angel/, committed daily by the fetch job); today's bars come
@@ -48,8 +48,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--date", type=dt.date.fromisoformat, default=dt.date.today())
-    ap.add_argument("--start", type=dt.date.fromisoformat, default=dt.date(2026, 9, 18),
-                    help="first paper trading day; the run is continuous from here (default 2026-09-18)")
+    ap.add_argument("--start", type=dt.date.fromisoformat, default=dt.date(2026, 9, 21),
+                    help="first paper trading day, started flat; the run is continuous from here (default 2026-09-21)")
     ap.add_argument("--as-of", default=None, help="HH:MM -- ignore bars at/after this time")
     ap.add_argument("--simulate", action="store_true", help="offline: bars from the chunk cache only")
     ap.add_argument("--no-deploy", action="store_true")
@@ -148,8 +148,8 @@ def main() -> int:
         log.info("[%s] completed trades %d, net %s", name, m.get("completed_trades", m.get("trades", 0)),
                  f"{m.get('total_net_pnl', 0):,.0f}")
 
-    title = (f"PAPER TEST — since {start} · as of {date} {cutoff.strftime('%H:%M')}"
-             + (" · DRY RUN from cached bars" if args.simulate else ""))
+    title = (f"Paper trading — from {start} · as of {date} {cutoff.strftime('%H:%M')}"
+             + (" · from cached bars" if args.simulate else ""))
     page = os.path.join(HERE, "deploy", "paper.html")
     arch_dir = os.path.join(HERE, "deploy", "paper")
     os.makedirs(arch_dir, exist_ok=True)
