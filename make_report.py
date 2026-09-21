@@ -89,6 +89,7 @@ def replay_state_track(run_dir: str, data_path: str) -> Optional[dict]:
     closed = [t for t in res.trades if t.is_closed and t.exit_reason != "DATASET_END"]
     fs = res.final_state
     D = cfg.swing_distance
+    E = cfg.futures_confirm_distance if cfg.futures_confirm_distance is not None else D
     final = {
         "t": to_epoch(fs.timestamp) if getattr(fs, "timestamp", None) else None,
         "pos": int(fs.position), "trade_id": fs.trade_id,
@@ -102,6 +103,8 @@ def replay_state_track(run_dir: str, data_path: str) -> Optional[dict]:
         "running_high": fs.running_high, "running_low": fs.running_low,
         "long_trigger": None if fs.running_low is None else round(fs.running_low + D, 2),
         "short_trigger": None if fs.running_high is None else round(fs.running_high - D, 2),
+        "fut_long_trigger": None if fs.futures_running_low is None else round(fs.futures_running_low + E, 2),
+        "fut_short_trigger": None if fs.futures_running_high is None else round(fs.futures_running_high - E, 2),
         "pending_side": None if fs.pending_side is None else int(fs.pending_side),
         "pending_level": fs.pending_spot_level,
         "consecutive_early_stops": fs.consecutive_early_stops,
@@ -748,8 +751,13 @@ function renderStatus() {
     ["Partial", f.partial_done ? "done" : `pending at ${num(f.entry + f.pos * P.P)}`],
     ["Trailing stop", f.mfe >= P.A ? `${num(f.entry + f.pos * (f.mfe - P.T))}${f.gap_regime ? " (suspended: gap regime)" : ""}` : "not armed yet"],
     ["Breaker", f.deferred ? `ENGAGED · deferred flip at ${num(f.deferred_price)}` : `off · consecutive early stops ${f.consecutive_early_stops}`]);
-  else items.push(["Next LONG entry if spot ≥", num(f.long_trigger)], ["Next SHORT entry if spot ≤", num(f.short_trigger)],
-    ["Pending", f.pending_side ? `${f.pending_side > 0 ? "LONG" : "SHORT"} spot-triggered at ${num(f.pending_level)}, waiting for futures confirmation` : "none"]);
+  else {
+    const ls = T.s[N - 1], lf = T.f[N - 1], ok = (v, lim, up) => (up ? v >= lim : v <= lim) ? "✓" : "✗";
+    items.push(
+      ["LONG entry needs BOTH", `spot ≥ ${num(f.long_trigger)} (now ${num(ls)} ${ok(ls, f.long_trigger, true)})<br>futures ≥ ${num(f.fut_long_trigger)} (now ${num(lf)} ${ok(lf, f.fut_long_trigger, true)})`],
+      ["SHORT entry needs BOTH", `spot ≤ ${num(f.short_trigger)} (now ${num(ls)} ${ok(ls, f.short_trigger, false)})<br>futures ≤ ${num(f.fut_short_trigger)} (now ${num(lf)} ${ok(lf, f.fut_short_trigger, false)})`],
+      ["Pending", f.pending_side ? `${f.pending_side > 0 ? "LONG" : "SHORT"}: spot leg met at ${num(f.pending_level)}, waiting for the futures leg` : "none — spot leg not met, or it was met and price pulled back"]);
+  }
   box.style.display = "block";
   box.innerHTML = `<div class="status">${items.map(([k, v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join("")}</div>`;
 }
