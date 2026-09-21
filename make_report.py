@@ -336,7 +336,8 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--hover)} tbody tr.sel{ba
 .events{font-size:12px;color:var(--muted);margin-top:8px;max-height:180px;overflow:auto}
 .events div{padding:2px 0;border-bottom:1px dashed var(--grid)}
 .note{font-size:12.5px;color:var(--muted);margin-top:8px}
-.btn{display:inline-block;background:var(--accent);color:#fff;padding:6px 12px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px}
+.btn{display:inline-block;background:var(--accent);color:#fff;padding:8px 14px;border-radius:8px;border:0;text-decoration:none;font-weight:600;font-size:14px;cursor:pointer}
+.btn:disabled{opacity:.55;cursor:default}
 .status{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px 16px;font-size:13px}
 .status .k{color:var(--muted);font-size:11.5px}
 .status .v{font-weight:600;font-variant-numeric:tabular-nums}
@@ -348,9 +349,11 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--hover)} tbody tr.sel{ba
   <h1>__TITLE__</h1>
   <div class="sub" id="sub"></div>
   <div id="status" class="panel" style="display:none"></div>
-  <div id="runnow" class="note" style="display:none">
-    <a class="btn" href="https://github.com/prarabdha-soni/nifty_180_point/actions/workflows/evening.yml" target="_blank" rel="noopener">Run now ↗</a>
-    &nbsp; opens GitHub → press <b>Run workflow</b> (needs your GitHub login) → this page refreshes in about 3 minutes with the full day.
+  <div id="runnow" class="panel" style="display:none">
+    <button class="btn" id="runbtn" type="button">▶ Run update now</button>
+    <span id="runmsg" class="note" style="margin-left:10px"></span>
+    <div class="note">Fetches today's bars, runs the engine on the full day and republishes this page (about 3 minutes). Works from any device; no Mac needed.
+      Fallback: <a href="https://github.com/prarabdha-soni/nifty_180_point/actions/workflows/evening.yml" target="_blank" rel="noopener">GitHub → Run workflow</a>.</div>
   </div>
   <div id="archive" class="note" style="display:none"></div>
   <div class="runs" id="runs"></div>
@@ -768,6 +771,34 @@ function renderStatus() {
   box.style.display = "block";
   box.innerHTML = `<div class="status">${items.map(([k, v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join("")}</div>`;
 }
+// ---------- run-now button: POST /api/run, then poll until the workflow finishes ----------
+const runBtn = document.getElementById("runbtn"), runMsg = document.getElementById("runmsg");
+function fmtRun(l) { if (!l) return "no run yet"; const when = new Date(l.created_at); const t = `${pad(when.getHours())}:${pad(when.getMinutes())}`;
+  return l.status === "completed" ? `last run ${t} · ${l.conclusion}` : `run started ${t} · ${l.status.replace("_", " ")}…`; }
+async function runStatus() { try { const r = await fetch("/api/run", { cache: "no-store" }); return await r.json(); } catch (e) { return { error: String(e) }; } }
+async function refreshRunState() {
+  if (!runBtn) return; const st = await runStatus();
+  if (st.error) { runMsg.textContent = st.error; runBtn.disabled = false; return st; }
+  runMsg.textContent = fmtRun(st.latest) + (st.can_run ? "" : ` — ${st.reason}`); runBtn.disabled = !st.can_run; return st;
+}
+if (runBtn) {
+  runBtn.onclick = async () => {
+    runBtn.disabled = true; runMsg.textContent = "starting…";
+    let r; try { r = await fetch("/api/run", { method: "POST" }); } catch (e) { runMsg.textContent = "request failed: " + e; runBtn.disabled = false; return; }
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { runMsg.textContent = j.error || `HTTP ${r.status}`; setTimeout(refreshRunState, 3000); return; }
+    runMsg.textContent = "queued on GitHub… this page reloads itself when the run finishes";
+    let sawRunning = false;
+    const poll = setInterval(async () => {
+      const st = await runStatus(); const l = st.latest; if (!l) return;
+      if (l.status !== "completed") { sawRunning = true; runMsg.textContent = `running (${l.status.replace("_", " ")})… started ${fmtRun(l).replace(/^run started /, "")}`; return; }
+      if (sawRunning || (Date.now() - Date.parse(l.created_at)) < 6 * 60000) { clearInterval(poll);
+        runMsg.textContent = `finished: ${l.conclusion} — reloading…`; setTimeout(() => location.reload(), 8000); }
+    }, 15000);
+  };
+  if (DATA.live) refreshRunState();
+}
+
 function renderAll() { useDataset(DATA.runs[run].data); renderStatus(); renderHeader(); renderOverview(); renderEquity(); renderTable(); renderDetail(); }
 window.addEventListener("resize", () => { renderOverview(); renderEquity(); renderDetail(); });
 renderAll();
