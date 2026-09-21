@@ -189,24 +189,33 @@ Files: `data/nifty_3y.csv` (canonical, adverse-first), `data/nifty_3y_favfirst.c
 `results/insample_{always,flat_only,r6_carry,always_favfirst}/` on the OHLC
 in-sample; `results/*_closeonly/` kept only to show the artefact.
 
-**Scheduled jobs run on GitHub Actions (since 2026-09-21), not on the Mac.**
-- `.github/workflows/fetch.yml` — 18:30 IST weekdays: `scripts/scheduled_fetch.sh`,
-  then commits `data/raw/angel/` (the 1-min bar cache, ~23 MB, tracked in git;
-  the 34 MB scrip master is not). History accumulates in the repo; expired
-  contracts are recovered from the cache dirs. **Do not run the fetch on the Mac
-  any more** — it rewrites the same cache files and conflicts with the bot's
-  commits; `git pull` brings the bars.
-- `.github/workflows/paper.yml` — every 10 min during market hours (UTC cron
-  + the script's IST guard): `scripts/paper_day.sh` → `/paper` on Vercel. The
-  broker session token is carried between runs with actions/cache.
+**Operations (owner's decisions, 2026-09-21): nothing scheduled anywhere.**
+The owner does not keep the Mac running and GitHub's cron never fired, so all
+cron schedules were removed. The routine is one manual click per evening:
+- `.github/workflows/evening.yml` (GitHub "Run workflow" button; the paper page
+  links to it as **Run now**): `scripts/scheduled_fetch.sh` (fetch the day's
+  bars, validate, archive today's paper page, commit `data/raw/angel/` +
+  `deploy/paper/`), then `scripts/paper_day.sh` with FORCE=1 (rebuild + deploy
+  `/paper` from the full day's candles). Identical results to intraday
+  polling: the engine replays candles, so run time does not matter.
+- `paper.yml` / `fetch.yml` remain as manual single-step backups.
+- No launchd agents are installed. `scripts/*.plist` + `install_schedule.sh
+  --only <label>` reinstall any of them (paper poll, fetch, tick recorder).
+- Tick recorder (`tick_recorder.py`, live WebSocket, needs the Mac awake during
+  the session) is NOT installed; ticks are not an input to anything. Today's
+  partial capture is in `data/ticks/2026-09-21/` (gitignored). Reinstall only
+  for a ticks-vs-bars study.
 - Secrets: repository secrets ANGEL_API_KEY, ANGEL_CLIENT_CODE, ANGEL_MPIN,
-  ANGEL_TOTP_SECRET, VERCEL_TOKEN (set with `gh secret set -f .env`).
-- Inspect: `gh run list --workflow=paper.yml`, `gh run view <id> --log`.
-  Manual test: `gh workflow run paper.yml -f force=1 -f args="--date D --as-of HH:MM"`.
-- The launchd agents (`scripts/*.plist`, `install_schedule.sh`) are kept as an
-  optional local fallback but are NOT installed; GitHub's scheduler can start
-  runs 5–15 min late. Cache blocks are anchored to a fixed 25-day calendar
-  grid so any date range reuses them. Neither job splits or backtests.
+  ANGEL_TOTP_SECRET, VERCEL_TOKEN (`gh secret set -f .env`). The repo is
+  PUBLIC by the owner's choice (2026-09-21).
+- Angel One sporadically answers "Access denied because of exceeding access
+  rate" (documented false positives); the client spaces calls 1.1 s and
+  retries with backoff up to ~8 min. Local test runs rewrite the current
+  non-final cache block: run `scripts/sync.sh` before pulling.
+- Paper run: `paper_trade.py` default `--start 2026-09-21`, continuous from
+  there with overnight carry; three tabs (ALWAYS, FLAT_ONLY, ALWAYS
+  favourable-first); status box shows both legs of the entry condition (spot
+  AND futures). Cache blocks are anchored to a fixed 25-day calendar grid.
 
 **Data status (fetched 2026-09-20, `--nearest-available`):**
 `data/nifty_3y.csv` = 28,784 rows, 78 sessions, 2026-06-01..2026-09-18, one
