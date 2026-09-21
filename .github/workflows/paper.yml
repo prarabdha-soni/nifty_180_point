@@ -1,12 +1,8 @@
 name: paper-trading page
 
-# Runs the V1 engine on today's candles and republishes /paper. Nothing is
-# traded: the only broker call is getCandleData. Cron is UTC: 03:00-10:59 UTC
-# covers 08:30-16:29 IST; scripts/paper_day.sh itself exits outside
-# Mon-Fri 09:17-15:45 IST. GitHub may start scheduled runs a few minutes late.
+# Manual backup only (owner's decision 2026-09-21: the Mac's launchd jobs are the
+# scheduler; GitHub's cron never fired). Run with: gh workflow run paper.yml
 on:
-  schedule:
-    - cron: "*/10 3-10 * * 1-5"
   workflow_dispatch:
     inputs:
       args:

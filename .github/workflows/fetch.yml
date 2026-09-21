@@ -1,11 +1,8 @@
 name: daily data fetch
 
-# 13:00 UTC = 18:30 IST, weekdays. Pulls the day's bars from Angel One into
-# data/raw/angel/ and commits them, so per-contract history accumulates in
-# the repo (Angel One drops a contract from its API the day after expiry).
+# Manual backup only (the Mac's launchd job is the scheduler). Pulls the day's
+# bars from Angel One and commits them. Run with: gh workflow run fetch.yml
 on:
-  schedule:
-    - cron: "0 13 * * 1-5"
   workflow_dispatch:
 
 permissions:
