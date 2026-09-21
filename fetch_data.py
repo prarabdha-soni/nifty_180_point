@@ -120,8 +120,8 @@ class Credentials:
 class AngelClient:
     RATE_LIMIT_MARKERS = ("rate", "access denied", "too many", "ab1004", "ab2001")
 
-    def __init__(self, creds: Credentials, min_interval: float = 0.4,
-                 max_retries: int = 6, session_cache: Optional[str] = None):
+    def __init__(self, creds: Credentials, min_interval: float = 1.1,
+                 max_retries: int = 8, session_cache: Optional[str] = None):
         self.creds = creds
         self.min_interval = min_interval
         self.max_retries = max_retries
@@ -145,6 +145,7 @@ class AngelClient:
         api = SmartConnect(api_key=self.creds.api_key, access_token=rec["jwt"],
                            refresh_token=rec.get("refresh"), feed_token=rec.get("feed"))
         try:
+            self._space()
             prof = api.getProfile(rec.get("refresh"))
         except Exception:
             return None
@@ -220,7 +221,7 @@ class AngelClient:
                 LOG.warning("attempt %d/%d failed (%s); backing off %.0fs",
                             attempt, self.max_retries, msg, delay)
                 time.sleep(delay)
-                delay = min(delay * 2, 60)
+                delay = min(delay * 2, 120)
                 continue
             raise FetchError(f"getCandleData failed for {params}: {msg}")
         raise FetchError(f"giving up after {self.max_retries} attempts: {params}")

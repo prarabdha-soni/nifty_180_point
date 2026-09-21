@@ -5,7 +5,9 @@
 #   scripts/install_schedule.sh            install / reload all
 #   scripts/install_schedule.sh --remove   uninstall all
 #   scripts/install_schedule.sh --run-now  install and fire the fetch job once
+#   scripts/install_schedule.sh --only com.nifty180.paper   install just that agent
 set -eu
+ONLY=""; if [ "${1:-}" = "--only" ]; then ONLY="$2"; shift 2; fi
 SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
 PROJECT="$(cd "$SCRIPTS/.." && pwd)"
 DOMAIN="gui/$(id -u)"
@@ -17,6 +19,7 @@ case "$PROJECT" in
 esac
 for SRC in "$SCRIPTS"/*.plist; do
   LABEL="$(basename "$SRC" .plist)"
+  [ -n "$ONLY" ] && [ "$LABEL" != "$ONLY" ] && continue
   DST="$HOME/Library/LaunchAgents/$LABEL.plist"
   launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
   if [ "${1:-}" = "--remove" ]; then rm -f "$DST"; echo "removed $LABEL"; continue; fi

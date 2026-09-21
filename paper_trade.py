@@ -44,17 +44,6 @@ import fetch_data as fd  # noqa: E402
 PY = sys.executable
 
 
-def previous_trading_day(cache: fd.ChunkCache, spot: fd.Contract, date: dt.date,
-                         offline: bool, client) -> dt.date:
-    """Latest date before `date` that has spot bars (cache first, then API)."""
-    df = fd.fetch_series(client, cache, spot, date - dt.timedelta(days=10), date - dt.timedelta(days=1),
-                         25, offline or client is None, dt.date.today())
-    days = sorted({t.date() for t in df["timestamp"]}) if len(df) else []
-    if not days:
-        raise fd.FetchError("no bars found in the 10 days before the session -- cannot build references")
-    return days[-1]
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -98,13 +87,20 @@ def main() -> int:
         raise fd.FetchError("no futures contract with expiry >= session date")
 
     start = min(args.start, date)
-    ref_day = previous_trading_day(cache, spot_c, start, args.simulate, client)
+    today = dt.date.today()
+    # one spot request covering the run plus a lead-in, so the reference day is
+    # derived from the same series (a second identical request within a second
+    # trips Angel One's burst filter, then it refuses for minutes)
+    spot_all = fd.fetch_series(client, cache, spot_c, start - dt.timedelta(days=10), date, 25,
+                               args.simulate, today)
+    days = sorted({t.date() for t in spot_all["timestamp"]}) if len(spot_all) else []
+    before = [d for d in days if d < start]
+    if not before:
+        raise fd.FetchError("no bars found in the 10 days before the paper start -- cannot build references")
+    ref_day = before[-1]
+    spot = spot_all[spot_all["timestamp"].dt.date >= ref_day].reset_index(drop=True)
     log.info("warm-up %s, paper run %s .. %s (continuous, positions carried overnight)", ref_day, start, date)
 
-    # whole range in one go: cached blocks for past days, the block holding today
-    # is non-final and is re-fetched from the API each poll (cache used when simulating)
-    today = dt.date.today()
-    spot = fd.fetch_series(client, cache, spot_c, ref_day, date, 25, args.simulate, today)
     fut_by = {}
     for c in contracts[:3]:
         c_start = max(ref_day, c.expiry - dt.timedelta(days=120))
