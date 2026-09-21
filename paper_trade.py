@@ -121,22 +121,26 @@ def main() -> int:
     if not len(fut):
         raise fd.FetchError("no near-month futures bars for these days")
     merged, rep = fd.align(spot, fut, "close")
-    merged = fd.expand_ohlc(merged, args.ohlc_order)
     out_dir = os.path.join(HERE, "results", "paper", date.isoformat())
     os.makedirs(out_dir, exist_ok=True)
     day_csv = os.path.join(out_dir, "day.csv")
-    fd.write_merged(merged, day_csv)
+    fd.write_merged(fd.expand_ohlc(merged, args.ohlc_order), day_csv)
+    # the other intra-minute ordering, so the page shows the bar-treatment band
+    other = "favourable-first" if args.ohlc_order == "adverse-first" else "adverse-first"
+    day_csv_other = os.path.join(out_dir, "day_other.csv")
+    fd.write_merged(fd.expand_ohlc(merged, other), day_csv_other)
     contract_used = sorted(set(fut["contract"]))
     log.info("aligned %d minutes -> %s (contract %s)", rep["aligned_minutes"], day_csv, contract_used)
 
     # engine runs, via run_backtest.py so outputs are byte-identical to a normal run
-    runs = {"always": os.path.join(HERE, "overrides", "paper_always.json"),
-            "flat_only": os.path.join(HERE, "overrides", "paper_flat_only.json")}
-    for name, cfg in runs.items():
+    runs = {"always": (os.path.join(HERE, "overrides", "paper_always.json"), day_csv),
+            "flat_only": (os.path.join(HERE, "overrides", "paper_flat_only.json"), day_csv),
+            "always_other": (os.path.join(HERE, "overrides", "paper_always.json"), day_csv_other)}
+    for name, (cfg, csv) in runs.items():
         rd = os.path.join(out_dir, name)
         os.makedirs(rd, exist_ok=True)
         with open(os.path.join(rd, "run.log"), "w") as fh:
-            rc = subprocess.call([PY, os.path.join(HERE, "run_backtest.py"), "--merged", day_csv,
+            rc = subprocess.call([PY, os.path.join(HERE, "run_backtest.py"), "--merged", csv,
                                   "--config", cfg, "--out", rd], stdout=fh, stderr=subprocess.STDOUT)
         if rc != 0:
             raise fd.FetchError(f"engine run {name} failed (see {rd}/run.log)")
@@ -156,6 +160,8 @@ def main() -> int:
                               "--title", title, "--archive-dir", arch_dir,
                               f"ALWAYS={os.path.relpath(os.path.join(out_dir, 'always'), HERE)}",
                               f"FLAT_ONLY={os.path.relpath(os.path.join(out_dir, 'flat_only'), HERE)}",
+                              f"ALWAYS ({other})={os.path.relpath(os.path.join(out_dir, 'always_other'), HERE)}"
+                              f"@{os.path.relpath(day_csv_other, HERE)}",
                               "--out", out], cwd=HERE)
         if rc != 0:
             raise fd.FetchError("make_report failed")
