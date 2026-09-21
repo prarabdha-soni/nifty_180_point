@@ -1,6 +1,6 @@
 #!/bin/bash
 # Paper-trading poll: run paper_trade.py on today's candles and publish /paper.
-# Fired at :02,:07,... 09:22-15:47 by launchd (com.nifty180.paper); exits at once outside
+# Fired at :02 and :32, 09:32-15:32 plus 15:47, by launchd (com.nifty180.paper); exits at once outside
 # market hours (Mon-Fri 09:17-15:48 IST) unless FORCE=1. Never places orders.
 set -uo pipefail
 PROJECT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
