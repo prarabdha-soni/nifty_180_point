@@ -1,13 +1,15 @@
 name: evening update
 
-# One-click end-of-day routine, run by hand from GitHub's "Run workflow" button
-# (linked from the paper page). Does everything the Mac jobs used to do:
+# End-of-day routine: scheduled 18:00 IST weekdays, and on demand from the
+# paper page's Run-now button (via /api/run) or GitHub's Run-workflow button. Does everything the Mac jobs used to do:
 #   1. fetch the day's bars from Angel One, validate, archive today's paper page,
 #      commit them to the repo
 #   2. rebuild and deploy the live paper page from the full day's candles
 # Results are identical to intraday polling: the engine replays the day's
 # candles, so when it runs makes no difference to the trades.
 on:
+  schedule:
+    - cron: "30 12 * * 1-5"      # 18:00 IST, Mon-Fri (GitHub may start it a few minutes late)
   workflow_dispatch:
 
 permissions:

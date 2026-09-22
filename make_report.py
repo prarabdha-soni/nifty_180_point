@@ -359,6 +359,10 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--hover)} tbody tr.sel{ba
   <div class="runs" id="runs"></div>
   <div class="tiles" id="tiles"></div>
 
+  <h2>Trade ledger</h2>
+  <div class="panel"><div class="tscroll"><table id="tbl"><thead></thead><tbody></tbody></table></div>
+    <div class="note">Points = futures points earned per unit (partials included). Click a column to sort, a row to open the trade.</div></div>
+
   <h2>Overview — every trade on the price path</h2>
   <div class="panel">
     <canvas id="ov" height="300"></canvas>
@@ -374,10 +378,6 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--hover)} tbody tr.sel{ba
   <div class="panel"><canvas id="eq" height="180"></canvas>
     <div class="legend"><span style="--c:var(--accent)">net P&amp;L after costs</span><span style="--c:var(--loss)">drawdown from peak</span></div>
   </div>
-
-  <h2>Trade ledger</h2>
-  <div class="panel"><div class="tscroll"><table id="tbl"><thead></thead><tbody></tbody></table></div>
-    <div class="note">Points = futures points earned per unit (partials included). Click a column to sort, a row to open the trade.</div></div>
 
   <h2>One trade, step by step</h2>
   <div class="panel detail">
