@@ -1,15 +1,14 @@
 name: evening update
 
-# End-of-day routine: scheduled 18:00 IST weekdays, and on demand from the
-# paper page's Run-now button (via /api/run) or GitHub's Run-workflow button. Does everything the Mac jobs used to do:
+# STOPPED 2026-09-29 at the owner's request: no schedule, and the workflow is
+# disabled in GitHub (`gh workflow enable evening.yml` + a cron line here to
+# restart it). Manual dispatch only, and only while enabled. Does everything the Mac jobs used to do:
 #   1. fetch the day's bars from Angel One, validate, archive today's paper page,
 #      commit them to the repo
 #   2. rebuild and deploy the live paper page from the full day's candles
 # Results are identical to intraday polling: the engine replays the day's
 # candles, so when it runs makes no difference to the trades.
 on:
-  schedule:
-    - cron: "30 12 * * 1-5"      # 18:00 IST, Mon-Fri (GitHub may start it a few minutes late)
   workflow_dispatch:
 
 permissions:

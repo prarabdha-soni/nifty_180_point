@@ -192,7 +192,20 @@ Files: `data/nifty_3y.csv` (canonical, adverse-first), `data/nifty_3y_favfirst.c
 `results/insample_{always,flat_only,r6_carry,always_favfirst}/` on the OHLC
 in-sample; `results/*_closeonly/` kept only to show the artefact.
 
-**Operations (owner's decisions, 2026-09-21): nothing scheduled anywhere.**
+**STOPPED 2026-09-29 (owner's request): all automation is off.**
+- All three GitHub workflows are `disabled_manually` (`gh workflow list --all`),
+  and `evening.yml` has no `schedule:` line any more.
+- `deploy/api/run.js` has `STOPPED = true`: the paper page's Run-now button is
+  disabled and the endpoint refuses to dispatch (HTTP 403).
+- No launchd agents, no cron entries, no background processes on the Mac.
+- Nothing calls Angel One or Vercel on a timer. The published pages (`/`,
+  `/paper`, `/paper/<date>`, `/v2`) are frozen snapshots and stay up.
+- **To restart:** `gh workflow enable evening.yml` (and the other two if
+  wanted), set `STOPPED = false` in `deploy/api/run.js` and redeploy, and add
+  back the `schedule:` cron in `evening.yml` if a timer is wanted. Manual runs
+  still work locally: `FORCE=1 bash scripts/paper_day.sh`.
+
+**Superseded — the previous arrangement (2026-09-21):**
 The owner does not keep the Mac running and GitHub's cron never fired, so all
 cron schedules were removed. The routine is one manual click per evening:
 - `.github/workflows/evening.yml` (GitHub "Run workflow" button; the paper page

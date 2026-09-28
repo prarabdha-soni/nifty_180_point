@@ -368,9 +368,9 @@ tbody tr.band td{background:var(--grid)}
   <div class="sub" id="sub"></div>
   <div id="status" class="panel" style="display:none"></div>
   <div id="runnow" class="panel" style="display:none">
-    <button class="btn" id="runbtn" type="button">▶ Run update now</button>
+    <button class="btn" id="runbtn" type="button" disabled>▶ Run update now</button>
     <span id="runmsg" class="note" style="margin-left:10px"></span>
-    <div class="note">Fetches today's bars, runs the engine on the full day and republishes this page (about 3 minutes). Works from any device; no Mac needed.
+    <div class="note"><b>Automation stopped 29 Sep 2026 at the owner's request.</b> Nothing fetches, runs or updates on a schedule; this page is a frozen snapshot of the last run.
       Fallback: <a href="https://github.com/prarabdha-soni/nifty_180_point/actions/workflows/evening.yml" target="_blank" rel="noopener">GitHub → Run workflow</a>.</div>
   </div>
   <div id="archive" class="note" style="display:none"></div>

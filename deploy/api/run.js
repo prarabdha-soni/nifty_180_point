@@ -8,6 +8,9 @@
 const REPO = "prarabdha-soni/nifty_180_point";
 const WORKFLOW = "evening.yml";
 const MIN_GAP_MIN = 15;
+// Stopped 2026-09-29 at the owner's request: the button does not dispatch.
+// Set STOPPED = false (and re-enable the workflow in GitHub) to resume.
+const STOPPED = true;
 
 async function gh(path, init = {}) {
   const token = process.env.GH_DISPATCH_TOKEN;
@@ -48,9 +51,10 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   try {
     const latest = await latestRun();
-    const g = gate(latest);
+    const g = STOPPED ? { can_run: false, reason: "automation stopped by the owner" } : gate(latest);
     if (req.method === "GET") return res.status(200).json({ latest, ...g });
     if (req.method !== "POST") return res.status(405).json({ error: "POST or GET" });
+    if (STOPPED) return res.status(403).json({ error: "automation stopped by the owner (2026-09-29); nothing is scheduled or dispatched", latest });
     if (!g.can_run) return res.status(429).json({ error: g.reason, latest });
     await gh(`/actions/workflows/${WORKFLOW}/dispatches`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ref: "main" }),
