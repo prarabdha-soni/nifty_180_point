@@ -16,7 +16,7 @@ for any D > 0. Same for the long side.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional, List, Dict, Any
 import datetime as dt
 import copy
@@ -53,10 +53,12 @@ class Backtester:
     def __init__(self, cfg: Optional[Config] = None):
         self.cfg = cfg or Config()
         self.cfg.validate()
+        self.base_cfg = self.cfg          # V2 H1 rescales a copy per session
         self.reset()
 
     # ------------------------------------------------------------------
     def reset(self) -> None:
+        self.cfg = self.base_cfg
         self.state = State()
         self.sim = ExecutionSimulator(self.cfg)
         self.ledger = TradeLedger()
@@ -140,7 +142,7 @@ class Backtester:
 
         recon = self.ledger.reconcile(self.sim.executions)
         return BacktestResult(
-            config=self.cfg,
+            config=self.base_cfg,
             ledger=self.ledger,
             executions=self.sim.executions,
             events_log=self.events_log,
@@ -151,7 +153,32 @@ class Backtester:
         )
 
     # ------------------------------------------------------------------
+    def _apply_distance_scale(self, ref: SessionReference) -> None:
+        """V2 H1 (distance_scale_ref): rescale the point distances to the
+        previous session's close. Only the numbers change; every component
+        reads self.cfg at the point of use, so decision logic and tick order
+        are untouched. No-op with the V1 default (None)."""
+        base = self.base_cfg
+        if base.distance_scale_ref is None or ref.prev_spot_close is None:
+            return
+        k = ref.prev_spot_close / base.distance_scale_ref
+        conf = base.futures_confirm_distance
+        scaled = replace(
+            base,
+            swing_distance=base.swing_distance * k,
+            early_stop_distance=base.early_stop_distance * k,
+            early_arm_distance=base.early_arm_distance * k,
+            partial_profit_distance=base.partial_profit_distance * k,
+            trail_distance=base.trail_distance * k,
+            futures_confirm_distance=None if conf is None else conf * k,
+        )
+        self.cfg = scaled
+        for comp in (self.signals, self.pending, self.positions, self.breaker, self.gap):
+            comp.cfg = scaled
+
     def initialize_session(self, st: State, ref: SessionReference) -> None:
+        self._apply_distance_scale(ref)
+
         # R7: futures contract roll
         rolled = (
             st.current_contract_expiry is not None

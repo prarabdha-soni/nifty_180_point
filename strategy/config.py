@@ -125,6 +125,17 @@ class Config:
     risk_free_annual: float = 0.0
 
     # -----------------------------------------------------------------------
+    # 4. V2 research switches -- NOT part of V1. Defaults reproduce V1 exactly.
+    #    See V2_RESEARCH.md.
+    # -----------------------------------------------------------------------
+
+    # H1: express distances as a fraction of the index. When set to R, D, S,
+    # A, P, T and the futures-confirm distance are multiplied by
+    # prev_session_close / R at each session start (identical to V1 when the
+    # index is at R). None = V1 fixed points.
+    distance_scale_ref: float | None = None
+
+    # -----------------------------------------------------------------------
     # Derived
     # -----------------------------------------------------------------------
     @property
@@ -174,6 +185,8 @@ class Config:
             raise ValueError("lot_size and num_lots must be positive")
         if set(self.tie_break_order) != {"FUT", "SPOT"}:
             raise ValueError("tie_break_order must be a permutation of ('FUT','SPOT')")
+        if self.distance_scale_ref is not None and self.distance_scale_ref <= 0:
+            raise ValueError("distance_scale_ref must be positive (or None for fixed points)")
 
     def to_json(self, indent: int = 2) -> str:
         return json.dumps(asdict(self), indent=indent, default=str)
