@@ -174,6 +174,20 @@ def load_run(label: str, path: str) -> dict:
             d[k] = to_epoch(r[k]) if not pd.isna(r[k]) else None
         d["points"] = round(float(r["gross_pnl"]) / float(r["entry_qty"]), 2) if r["entry_qty"] else None
         tlist.append(d)
+    # Sequences: a fresh decision (ENTRY / ENTRY_PENDING) starts one; the rows the
+    # engine opens mechanically afterwards (reversal on an early stop or deferred
+    # flip, re-entry armed by a trail exit, restored carry) continue it.
+    seq = 0
+    for d in sorted(tlist, key=lambda x: (x.get("entry_datetime") or 0, x.get("trade_id") or 0)):
+        reason = str(d.get("entry_reason") or "")
+        if reason in ("ENTRY", "ENTRY_PENDING") or seq == 0:
+            seq += 1
+            d["kind"] = "fresh"
+        elif reason.startswith("REVERSE_"):
+            d["kind"] = "reversal"
+        else:
+            d["kind"] = "re-entry"
+        d["seq"] = seq
     events: List[dict] = []
     ep = os.path.join(path, "events.csv")
     ev = None
@@ -329,6 +343,10 @@ th{color:var(--muted);font-weight:600;cursor:pointer;position:sticky;top:0;backg
 tbody tr{cursor:pointer} tbody tr:hover{background:var(--hover)} tbody tr.sel{background:var(--sel)}
 .tscroll{overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:8px}
 .pos{color:var(--long)} .neg{color:var(--short)}
+.ledgersum{font-size:14px;margin:0 0 8px}
+.kind{display:inline-block;margin-left:6px;padding:0 5px;border-radius:5px;font-size:10.5px;border:1px solid var(--line);color:var(--muted);font-style:normal}
+.kind.fresh{border-color:var(--accent);color:var(--accent)}
+tbody tr.band td{background:var(--grid)}
 .detail{display:grid;grid-template-columns:1fr;gap:12px}
 @media(min-width:900px){.detail{grid-template-columns:2fr 1fr}}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
@@ -360,8 +378,11 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--hover)} tbody tr.sel{ba
   <div class="tiles" id="tiles"></div>
 
   <h2>Trade ledger</h2>
-  <div class="panel"><div class="tscroll"><table id="tbl"><thead></thead><tbody></tbody></table></div>
-    <div class="note">Points = futures points earned per unit (partials included). Click a column to sort, a row to open the trade.</div></div>
+  <div class="panel"><div id="ledgersum" class="ledgersum"></div><div class="tscroll"><table id="tbl"><thead></thead><tbody></tbody></table></div>
+    <div class="note">A <b>decision</b> is a fresh entry. The rows that follow it in the same sequence are opened by the engine
+      itself: a <i>reversal</i> when an early stop closes and flips the position (spec 8.2), a <i>re-entry</i> when a trailing-stop
+      exit lands on the opposite trigger (R2). Points = futures points earned per unit (partials included). Click a column to sort,
+      a row to open the trade.</div></div>
 
   <h2>Overview — every trade on the price path</h2>
   <div class="panel">
@@ -581,26 +602,38 @@ function renderEquity() {
 
 // ---------- table ----------
 const COLS = [
-  ["trade_id", "#"], ["direction", "side"], ["entry_datetime", "entry", "t"], ["entry_spot", "entry spot", "n"],
+  ["seq", "seq"], ["trade_id", "#"], ["direction", "side"], ["entry_datetime", "entry", "t"], ["entry_spot", "entry spot", "n"],
   ["entry_reason", "entry reason"], ["partial_datetime", "partial", "t"], ["exit_datetime", "exit", "t"],
   ["exit_spot", "exit spot", "n"], ["exit_reason", "exit reason"], ["points", "points", "n"],
   ["net_pnl", "net ₹", "m"], ["maximum_favourable_excursion", "MFE", "n"], ["maximum_adverse_excursion", "MAE", "n"],
   ["holding_time", "hold h", "h"], ["sessions_spanned", "sessions"], ["breaker_triggered", "breaker"], ["gap_regime_flag", "gap"],
 ];
+function renderLedgerSummary() {
+  const all = tradesOf(DATA.runs[run]), decisions = new Set(all.map(t => t.seq)).size;
+  const closed = all.filter(t => !t.open), openN = all.length - closed.length;
+  const el = document.getElementById("ledgersum");
+  if (!all.length) { el.innerHTML = "No trades yet."; return; }
+  el.innerHTML = `<b>${decisions} decision${decisions === 1 ? "" : "s"} → ${all.length} execution${all.length === 1 ? "" : "s"}</b>` +
+    ` <span class="note">(${closed.length} closed${openN ? `, ${openN} open` : ""}; ${all.filter(t => t.kind === "reversal").length} reversal,` +
+    ` ${all.filter(t => t.kind === "re-entry").length} re-entry)</span>`;
+}
 function renderTable() {
+  renderLedgerSummary();
   const trades = [...tradesOf(DATA.runs[run])].sort((a, b) => { const x = a[sortKey], y = b[sortKey];
     return (x == null ? -Infinity : x) > (y == null ? -Infinity : y) ? sortDir : -sortDir; });
   const th = document.querySelector("#tbl thead"); th.innerHTML = "<tr>" + COLS.map(([k, l]) => `<th class="${k === "direction" || k.endsWith("reason") ? "l" : ""}">${l}${k === sortKey ? (sortDir > 0 ? " ▲" : " ▼") : ""}</th>`).join("") + "</tr>";
   th.querySelectorAll("th").forEach((e, i) => e.onclick = () => { const k = COLS[i][0]; if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = 1; } renderTable(); });
   const tb = document.querySelector("#tbl tbody"); tb.innerHTML = "";
   for (const tr of trades) {
-    const row = document.createElement("tr"); if (tr.trade_id === selected) row.className = "sel";
+    const row = document.createElement("tr");
+    if (tr.trade_id === selected) row.className = "sel"; else if (tr.seq % 2 === 0) row.className = "band";
     if (tr.open) row.style.fontStyle = "italic";
     row.innerHTML = COLS.map(([k, _, f]) => { let v = tr[k]; let cls = "";
       if (f === "t") v = fmtT(v); else if (f === "n") v = num(v, k.includes("excursion") || k === "points" ? 1 : 2);
       else if (f === "m") { cls = v >= 0 ? "pos" : "neg"; v = money(v); } else if (f === "h") v = (v / 3600).toFixed(1);
       else if (typeof v === "boolean") v = v ? "yes" : "";
       if (k === "direction") cls = v === "LONG" ? "pos" : "neg";
+      if (k === "entry_reason" && tr.kind) v = `${v}<span class="kind ${tr.kind}">${tr.kind}</span>`;
       return `<td class="${cls} ${k === "direction" || k.endsWith("reason") ? "l" : ""}">${v ?? ""}</td>`; }).join("");
     row.onclick = () => { selected = tr.trade_id; renderOverview(); renderTable(); renderDetail(); };
     tb.appendChild(row);
@@ -751,6 +784,7 @@ function renderStatus() {
     ["As of (last complete minute)", fmtT(T.t[N - 1])], ["Spot / futures", `${num(T.s[N - 1])} / ${num(T.f[N - 1])}`],
     ["Position", side + (f.pos ? ` · qty ${f.qty} · since ${fmtT(f.entry_t)}` : "")],
     ["Closed trades (whole paper run)", `${closedN} · realised <b class="${realised >= 0 ? "pos" : "neg"}">${money(realised)}</b>`],
+    ["Decisions → executions", (() => { const a = tradesOf(R); return `${new Set(a.map(t => t.seq)).size} → ${a.length}`; })()],
     ["Open position, if closed now", o ? `<b class="${o.net_pnl >= 0 ? "pos" : "neg"}">${money(o.net_pnl)}</b> (${money(o.gross_pnl)} on futures − ${money(o.transaction_cost)} costs)` : "—"],
     ["Total, realised + open", `<b class="${(realised + (o ? o.net_pnl : 0)) >= 0 ? "pos" : "neg"}">${money(realised + (o ? o.net_pnl : 0))}</b>`],
   ];
