@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>V2 Research Results</title>
+<meta name="description" content="NIFTY 180-point swing: pre-registered V2 study on a 3-year spot proxy">
+<style>
+:root{
+  color-scheme:light;
+  --page:#f9f9f7; --surface-1:#fcfcfb; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10);
+  --series-1:#2a78d6; --series-2:#eb6834; --pos:#2a78d6; --neg:#e34948; --mid:#f0efec;
+  --good:#006300;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme:dark;
+    --page:#0d0d0d; --surface-1:#1a1a19; --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+    --series-1:#3987e5; --series-2:#d95926; --pos:#3987e5; --neg:#e66767; --mid:#383835;
+    --good:#0ca30c;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --page:#0d0d0d; --surface-1:#1a1a19; --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+  --series-1:#3987e5; --series-2:#d95926; --pos:#3987e5; --neg:#e66767; --mid:#383835;
+  --good:#0ca30c;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:24px;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:17px;margin:36px 0 4px}
+.lede{color:var(--ink-2);margin:0 0 20px;max-width:760px}
+.sub{color:var(--ink-2);margin:0 0 12px;max-width:760px;font-size:14px}
+.card{background:var(--surface-1);border:1px solid var(--ring);border-radius:12px;padding:16px}
+.verdict{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:8px 0 4px}
+.tile .k{color:var(--ink-2);font-size:13px}
+.tile .v{font-size:26px;font-weight:650;margin-top:2px;letter-spacing:-.01em}
+.tile .n{color:var(--muted);font-size:12.5px;margin-top:2px}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);margin:0 0 6px}
+.sw{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+svg{display:block;width:100%;height:auto;overflow:visible}
+svg text{fill:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+svg .lbl{fill:var(--ink-2);font-size:12px}
+.two{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:760px){.two{grid-template-columns:1fr 1fr}}
+.tip{position:fixed;pointer-events:none;background:var(--surface-1);color:var(--ink);border:1px solid var(--ring);
+  border-radius:8px;padding:8px 10px;font-size:12.5px;box-shadow:0 6px 24px rgba(0,0,0,.18);display:none;z-index:5;max-width:280px}
+.tip b{font-variant-numeric:tabular-nums}
+.tscroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:6px 8px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
+th{color:var(--ink-2);font-weight:600} th:first-child,td:first-child{text-align:left}
+td.neg{color:var(--neg)} td.pos{color:var(--good)}
+.chip{display:inline-block;padding:1px 7px;border-radius:6px;font-size:11.5px;border:1px solid var(--ring);color:var(--ink-2)}
+ul{margin:8px 0;padding-left:20px} li{margin:6px 0}
+.note{color:var(--muted);font-size:12.5px;margin-top:8px}
+a{color:var(--series-1)}
+</style></head>
+<body><div class="wrap">
+<h1>V2 research: can the model be improved?</h1>
+<p class="lede">Six pre-registered fixes were tested against V1 on 2¼ years of NIFTY data (a spot proxy for futures),
+with the selection rule fixed and committed before any run. <b>None passed.</b> V1 stays the only model, and the holdout stays
+unopened. The bigger finding is V1 itself, shown first.</p>
+
+<div class="verdict" id="tiles"></div>
+
+<h2>V1 over the long run</h2>
+<p class="sub">Cumulative net P&amp;L after costs, trade by trade, Sep 2023 → Dec 2025. The June–August 2026 in-sample you saw before (+₹3.1 L) was a good stretch, not the norm.</p>
+<div class="card"><div class="legend" id="eqlegend"></div><svg id="eq" viewBox="0 0 1000 340" role="img" aria-label="V1 cumulative net P&L"></svg></div>
+
+<h2>Where the money goes</h2>
+<p class="sub">V1 on TRAIN (canonical adverse-first ordering), net ₹ by how each trade ended. The trend-following exit earns;
+the protection machinery (early stop + reverse, breaker, gap exit) gives back more than that.</p>
+<div class="card"><svg id="rsn" viewBox="0 0 1000 230" role="img" aria-label="Net by exit reason"></svg>
+<div class="note" id="grossnote"></div></div>
+
+<h2>The one clear signal: the 60-point early stop</h2>
+<p class="sub">Net ₹ as the early stop (and arm level) widens from V1's 60 points. On TRAIN, wider was better at nearly every step. On VALIDATE
+it was not, so under the rule it's not promoted. It is the lead for the next study, not a fix.</p>
+<div class="two">
+  <div class="card"><div class="legend" id="stlegend"></div><div class="sub" style="margin:0">TRAIN · 438 sessions</div><svg id="stT" viewBox="0 0 480 260"></svg></div>
+  <div class="card"><div class="legend" id="stlegend2"></div><div class="sub" style="margin:0">VALIDATE · 126 sessions</div><svg id="stV" viewBox="0 0 480 260"></svg></div>
+</div>
+
+<h2>Every variant against the rule</h2>
+<p class="sub">Promoted only if, on VALIDATE and under both intra-minute orderings, it beats V1 on net <b>and</b> drawdown (a), its grid neighbours
+beat V1 too (b), and it is not worse than V1 on TRAIN (c). S150/S210/S240 and the neighbours are reference runs, never promotable.</p>
+<div class="card tscroll"><table id="tbl"></table></div>
+
+<h2>What this taught us</h2>
+<div class="card"><ul>
+<li><b>The strategy loses before costs over 2023–25</b> on this proxy (profit factor 0.62–0.73 over 310+ trades). Costs make it worse; they are not the cause.</li>
+<li><b>The 60-point early stop is the main drain.</b> NIFTY ranged more than 60 points on 97% of days, so the stop is inside the everyday noise:
+it fires, reverses, and the reversal gets stopped too. Widening it improved TRAIN at nearly every step (one small dip, under one ordering).</li>
+<li><b>The breaker helps.</b> Removing it (H3) made losses much larger, not smaller.</li>
+<li><b>Re-entry chains are not the problem.</b> FLAT_ONLY (H2) changed little.</li>
+<li><b>Distances as % of the index (H1)</b> helped on VALIDATE but not TRAIN. It's not robust, so it's not adopted.</li>
+</ul>
+<p class="note">Caveats: futures = spot in this proxy, so there's no basis P&amp;L and no futures-confirmation filter, costs are on spot notional, and there's no expiry roll.
+Against 55 real-futures sessions it matched the trade count within 5% but found only 5 of 8 fresh entries and a third of the rupees. Read the comparisons
+between variants, not the absolute rupees. Pre-registration and results: <a href="https://github.com/prarabdha-soni/nifty_180_point/blob/main/V2_RESEARCH.md">V2_RESEARCH.md</a>.</p></div>
+</div>
+<div class="tip" id="tip"></div>
+<script>
+const D = {"equity":[{"name":"adverse-first","points":[["2023-09-28",40975],["2023-09-28",14682],["2023-09-29",45015],["2023-10-03",-9754],["2023-10-05",19223],["2023-10-09",42314],["2023-10-13",65672],["2023-10-17",-2118],["2023-10-27",162536],["2023-11-01",132224],["2023-11-02",91361],["2023-11-10",138291],["2023-11-15",108325],["2023-11-15",101275],["2023-11-17",63439],["2023-11-17",36369],["2023-12-13",280356],["2023-12-14",179231],["2023-12-18",262772],["2023-12-21",57541],["2024-01-02",151491],["2024-01-04",168822],["2024-01-08",122787],["2024-01-09",91048],["2024-01-10",45174],["2024-01-17",72960],["2024-01-17",16131],["2024-01-17",13075],["2024-01-19",-67832],["2024-01-30",-41661],["2024-01-31",-15522],["2024-02-05",66253],["2024-02-06",92035],["2024-02-08",55741],["2024-02-12",82061],["2024-02-12",55916],["2024-02-13",89460],["2024-02-13",56639],["2024-02-16",-84813],["2024-02-20",-118717],["2024-02-22",-92386],["2024-02-26",-57445],["2024-02-27",-84099],["2024-02-28",-182483],["2024-02-29",-209213],["2024-03-05",-128465],["2024-03-06",-155816],["2024-03-11",-121653],["2024-03-11",-148197],["2024-03-13",-246530],["2024-03-14",-207737],["2024-03-15",-216093],["2024-03-18",-249279],["2024-03-19",-272639],["2024-03-20",-318581],["2024-03-20",-344637],["2024-03-21",-415042],["2024-03-22",-441983],["2024-03-26",-419615],["2024-03-26",-465792],["2024-03-28",-386543],["2024-04-01",-436782],["2024-04-03",-471619],["2024-04-05",-527216],["2024-04-12",-505325],["2024-04-18",-394996],["2024-04-22",-564226],["2024-04-23",-590444],["2024-05-03",-740076],["2024-05-06",-731346],["2024-05-10",-650054],["2024-05-10",-678651],["2024-05-13",-645852],["2024-05-13",-672213],["2024-05-14",-770150],["2024-05-16",-758727],["2024-05-16",-807206],["2024-05-27",-647027],["2024-05-28",-676681],["2024-05-29",-774400],["2024-05-31",-721293],["2024-05-31",-748700],["2024-06-03",-1061044],["2024-06-03",-1162897],["2024-06-03",-1179426],["2024-06-05",-1035393],["2024-06-05",-1079823],["2024-06-05",-1045753],["2024-06-05",-1078803],["2024-06-05",-1127103],["2024-06-05",-1159611],["2024-06-05",-1260496],["2024-06-05",-1227085],["2024-06-05",-1253461],["2024-06-19",-1004743],["2024-06-19",-1035141],["2024-06-20",-1016504],["2024-06-20",-1047609],["2024-06-21",-1079728],["2024-06-21",-1108024],["2024-06-24",-1175021],["2024-07-05",-1026132],["2024-07-05",-1052739],["2024-07-10",-1028878],["2024-07-10",-1053833],["2024-07-11",-1096472],["2024-07-11",-1122788],["2024-07-19",-1021222],["2024-07-23",-922391],["2024-07-24",-884503],["2024-07-24",-911615],["2024-07-25",-979826],["2024-08-02",-880996],["2024-08-06",-672231],["2024-08-08",-633815],["2024-08-09",-664335],["2024-08-09",-678589],["2024-08-12",-705237],["2024-08-13",-680277],["2024-08-16",-663421],["2024-09-04",-490697],["2024-09-09",-435075],["2024-09-09",-462422],["2024-09-10",-560468],["2024-09-10",-588909],["2024-09-12",-559378],["2024-09-13",-597604],["2024-09-19",-675908],["2024-09-20",-707202],["2024-09-20",-659805],["2024-09-20",-690553],["2024-09-20",-726859],["2024-09-20",-827309],["2024-09-30",-760514],["2024-09-30",-792193],["2024-09-30",-888935],["2024-10-04",-742075],["2024-10-04",-769832],["2024-10-04",-866455],["2024-10-04",-900511],["2024-10-07",-797745],["2024-10-07",-829933],["2024-10-07",-801778],["2024-10-07",-838147],["2024-10-09",-943167],["2024-10-09",-920763],["2024-10-10",-955854],["2024-10-10",-987884],["2024-10-14",-1011703],["2024-10-15",-1045582],["2024-10-15",-1074957],["2024-10-17",-1175866],["2024-10-18",-1148114],["2024-10-30",-1342388],["2024-11-04",-1257068],["2024-11-05",-1292651],["2024-11-05",-1347736],["2024-11-07",-1263398],["2024-11-08",-1219099],["2024-11-08",-1263719],["2024-11-12",-1255749],["2024-11-18",-1174723],["2024-11-18",-1203271],["2024-11-19",-1238606],["2024-11-22",-1214450],["2024-11-22",-1251358],["2024-11-22",-1349428],["2024-11-26",-1224470],["2024-11-26",-1253257],["2024-11-28",-1287795],["2024-11-29",-1241532],["2024-11-29",-1271156],["2024-12-02",-1370268],["2024-12-04",-1320881],["2024-12-04",-1350744],["2024-12-05",-1398426],["2024-12-05",-1429454],["2024-12-05",-1349874],["2024-12-05",-1329503],["2024-12-10",-1382227],["2024-12-10",-1419264],["2024-12-13",-1461370],["2024-12-13",-1412582],["2024-12-16",-1340838],["2024-12-16",-1369012],["2024-12-17",-1468468],["2024-12-17",-1496914],["2024-12-18",-1593833],["2024-12-18",-1621186],["2024-12-19",-1794123],["2024-12-19",-1845128],["2024-12-19",-1866088],["2024-12-20",-1920355],["2024-12-20",-1949796],["2024-12-20",-1984793],["2024-12-23",-1925044],["2024-12-24",-1948508],["2024-12-26",-1986638],["2024-12-26",-2037071],["2024-12-26",-2066596],["2024-12-30",-2035174],["2024-12-30",-2064809],["2024-12-30",-2106493],["2025-01-01",-2081039],["2025-01-01",-2110684],["2025-01-02",-2209506],["2025-01-03",-2160102],["2025-01-03",-2189205],["2025-01-06",-2290760],["2025-01-07",-2245564],["2025-01-13",-2457470],["2025-01-14",-2476074],["2025-01-16",-2502791],["2025-01-16",-2512891],["2025-01-20",-2553167],["2025-01-20",-2579913],["2025-01-21",-2616156],["2025-01-21",-2653764],["2025-01-21",-2682986],["2025-01-21",-2709186],["2025-01-22",-2662064],["2025-01-23",-2690061],["2025-01-24",-2788093],["2025-01-24",-2814435],["2025-01-28",-2728293],["2025-02-01",-2617839],["2025-02-01",-2649032],["2025-02-01",-2697889],["2025-02-01",-2729993],["2025-02-03",-2776369],["2025-02-04",-2853423],["2025-02-06",-2806651],["2025-02-07",-2830478],["2025-02-07",-2858653],["2025-02-12",-2710580],["2025-02-12",-2688089],["2025-02-12",-2716519],["2025-02-13",-2686459],["2025-02-14",-2716733],["2025-02-17",-2866155],["2025-02-18",-2893135],["2025-03-03",-2734925],["2025-03-06",-2923885],["2025-03-10",-2901134],["2025-03-13",-2883258],["2025-03-13",-2910033],["2025-03-17",-2913131],["2025-03-18",-2940368],["2025-03-18",-2949078],["2025-03-19",-2976399],["2025-03-20",-3055344],["2025-03-25",-2927794],["2025-03-26",-2929045],["2025-03-27",-2960651],["2025-03-28",-2944859],["2025-03-28",-2972822],["2025-04-01",-3048026],["2025-04-01",-3081805],["2025-04-01",-3086475],["2025-04-02",-3114465],["2025-04-03",-3158949],["2025-04-03",-3185275],["2025-04-03",-3194678],["2025-04-07",-2957488],["2025-04-07",-2963907],["2025-04-09",-2932443],["2025-04-11",-3026774],["2025-04-25",-2734117],["2025-04-25",-2701632],["2025-04-30",-2640981],["2025-04-30",-2675485],["2025-05-06",-2636992],["2025-05-07",-2668235],["2025-05-07",-2697450],["2025-05-09",-2631072],["2025-05-09",-2660548],["2025-05-12",-2801386],["2025-05-13",-2704467],["2025-05-13",-2683086],["2025-05-13",-2710635],["2025-05-14",-2680806],["2025-05-14",-2711717],["2025-05-15",-2698162],["2025-05-15",-2754498],["2025-05-15",-2786065],["2025-05-19",-2704023],["2025-05-20",-2731350],["2025-05-20",-2832338],["2025-05-21",-2860091],["2025-05-21",-2828691],["2025-05-23",-2784771],["2025-05-27",-2716123],["2025-05-27",-2705850],["2025-05-27",-2756986],["2025-05-29",-2779376],["2025-05-29",-2807094],["2025-06-02",-2850000],["2025-06-03",-2850566],["2025-06-04",-2877798],["2025-06-05",-2830309],["2025-06-05",-2860231],["2025-06-12",-2784157],["2025-06-16",-2698164],["2025-06-18",-2660786],["2025-06-18",-2687538],["2025-06-18",-2722655],["2025-06-18",-2750029],["2025-06-23",-2703216],["2025-06-24",-2799807],["2025-06-30",-2713544],["2025-07-03",-2746846],["2025-07-03",-2793406],["2025-07-04",-2821848],["2025-07-10",-2860136],["2025-07-10",-2887658],["2025-07-11",-2956046],["2025-07-15",-2986055],["2025-07-18",-3031934],["2025-07-21",-3008897],["2025-07-21",-3037390],["2025-07-24",-3135178],["2025-07-24",-3162561],["2025-07-29",-3058524],["2025-07-31",-3114708],["2025-08-04",-3146066],["2025-08-04",-3176702],["2025-08-07",-3124285],["2025-08-08",-3161861],["2025-08-11",-3190738],["2025-08-12",-3165102],["2025-08-13",-3192896],["2025-08-22",-3054312],["2025-09-01",-2941385],["2025-09-02",-2974548],["2025-09-03",-3001275],["2025-09-22",-2819745],["2025-10-01",-2703554],["2025-10-08",-2625373],["2025-10-08",-2652213],["2025-10-14",-2617208],["2025-10-15",-2656151],["2025-10-21",-2520312],["2025-10-23",-2513638],["2025-10-23",-2541702],["2025-10-23",-2555001],["2025-10-27",-2534362],["2025-10-28",-2518227],["2025-10-28",-2545104],["2025-10-30",-2506812],["2025-10-31",-2536592],["2025-11-03",-2635080],["2025-11-03",-2666145],["2025-11-04",-2712711],["2025-11-06",-2739384],["2025-11-07",-2861671],["2025-11-12",-3041823],["2025-11-13",-3069603],["2025-11-14",-3047299],["2025-11-21",-2985533],["2025-11-26",-2950417],["2025-11-27",-2978251],["2025-12-04",-2930745],["2025-12-04",-2958967],["2025-12-10",-2913380],["2025-12-10",-2939964],["2025-12-11",-2920092],["2025-12-15",-2878853],["2025-12-17",-2906627],["2025-12-26",-2851647],["2025-12-31",-2823959]]},{"name":"favourable-first","points":[["2023-09-28",40975],["2023-09-28",14682],["2023-09-29",45015],["2023-10-03",-9754],["2023-10-05",19223],["2023-10-09",42314],["2023-10-13",65672],["2023-10-17",-2118],["2023-10-27",162536],["2023-11-01",132224],["2023-11-02",91361],["2023-11-10",138291],["2023-11-15",108325],["2023-11-15",101275],["2023-11-17",63439],["2023-11-17",36369],["2023-12-13",280356],["2023-12-14",179231],["2023-12-18",262772],["2023-12-21",57541],["2024-01-02",151491],["2024-01-04",168822],["2024-01-08",122787],["2024-01-09",91048],["2024-01-10",45174],["2024-01-17",72960],["2024-01-17",16131],["2024-01-17",13075],["2024-01-19",-67832],["2024-01-30",-41661],["2024-01-31",-15522],["2024-02-05",66253],["2024-02-06",92035],["2024-02-08",55741],["2024-02-12",82061],["2024-02-12",55916],["2024-02-13",89460],["2024-02-13",56639],["2024-02-16",-84813],["2024-02-20",-118717],["2024-02-22",-92386],["2024-02-26",-57445],["2024-02-27",-84099],["2024-02-28",-182483],["2024-02-29",-209213],["2024-03-05",-128465],["2024-03-06",-155816],["2024-03-11",-121653],["2024-03-11",-148197],["2024-03-13",-246530],["2024-03-14",-207737],["2024-03-15",-216093],["2024-03-18",-249279],["2024-03-19",-272639],["2024-03-20",-318581],["2024-03-20",-344637],["2024-03-21",-415042],["2024-03-22",-441983],["2024-03-26",-419615],["2024-03-26",-465792],["2024-03-28",-386543],["2024-04-01",-436782],["2024-04-03",-471619],["2024-04-05",-527216],["2024-04-12",-505325],["2024-04-18",-394996],["2024-04-22",-564226],["2024-04-23",-590444],["2024-05-03",-740076],["2024-05-06",-731346],["2024-05-10",-650054],["2024-05-10",-678651],["2024-05-13",-645852],["2024-05-13",-672213],["2024-05-14",-770150],["2024-05-16",-758727],["2024-05-16",-807206],["2024-05-27",-647027],["2024-05-28",-676681],["2024-05-29",-774400],["2024-05-31",-721293],["2024-05-31",-748700],["2024-06-03",-1061044],["2024-06-03",-1162897],["2024-06-03",-1265063],["2024-06-03",-1357149],["2024-06-03",-1363597],["2024-06-04",-1543616],["2024-06-04",-1711507],["2024-06-05",-1555347],["2024-06-05",-1599777],["2024-06-05",-1565707],["2024-06-05",-1598756],["2024-06-05",-1647057],["2024-06-05",-1679565],["2024-06-05",-1780450],["2024-06-05",-1747039],["2024-06-05",-1776906],["2024-06-19",-1529046],["2024-06-19",-1559445],["2024-06-20",-1540808],["2024-06-20",-1571913],["2024-06-21",-1604032],["2024-06-21",-1632328],["2024-06-24",-1699325],["2024-07-05",-1550436],["2024-07-05",-1577043],["2024-07-10",-1553181],["2024-07-10",-1578137],["2024-07-11",-1620776],["2024-07-11",-1647092],["2024-07-19",-1545526],["2024-07-23",-1446694],["2024-07-23",-1508067],["2024-07-23",-1604583],["2024-07-23",-1634128],["2024-07-26",-1679801],["2024-08-02",-1580971],["2024-08-06",-1372206],["2024-08-08",-1333791],["2024-08-09",-1364310],["2024-08-09",-1378564],["2024-08-12",-1405212],["2024-08-13",-1380252],["2024-08-16",-1363396],["2024-09-04",-1190672],["2024-09-09",-1135050],["2024-09-09",-1162398],["2024-09-10",-1260443],["2024-09-10",-1288884],["2024-09-12",-1259353],["2024-09-13",-1297579],["2024-09-19",-1375883],["2024-09-20",-1407177],["2024-09-20",-1359780],["2024-09-20",-1387486],["2024-09-30",-1286414],["2024-09-30",-1318094],["2024-09-30",-1414835],["2024-10-04",-1267975],["2024-10-04",-1295732],["2024-10-04",-1392355],["2024-10-04",-1426411],["2024-10-07",-1323645],["2024-10-07",-1355833],["2024-10-07",-1327678],["2024-10-07",-1364047],["2024-10-09",-1469067],["2024-10-09",-1446663],["2024-10-10",-1481754],["2024-10-10",-1513784],["2024-10-14",-1537603],["2024-10-15",-1571482],["2024-10-15",-1600857],["2024-10-17",-1701766],["2024-10-18",-1674014],["2024-10-30",-1868288],["2024-10-31",-1899820],["2024-11-04",-1999864],["2024-11-04",-1951443],["2024-11-05",-1987025],["2024-11-05",-2042111],["2024-11-07",-1957773],["2024-11-08",-1913474],["2024-11-08",-1943686],["2024-11-11",-1931274],["2024-11-11",-1961332],["2024-11-12",-1972142],["2024-11-18",-1891115],["2024-11-18",-1919663],["2024-11-19",-1954998],["2024-11-22",-1930842],["2024-11-22",-1957846],["2024-11-22",-2056270],["2024-11-26",-1935147],["2024-11-26",-1963933],["2024-11-28",-1998471],["2024-11-29",-1952208],["2024-11-29",-1981832],["2024-12-02",-2080944],["2024-12-04",-2031557],["2024-12-04",-2060425],["2024-12-05",-2107113],["2024-12-05",-2139525],["2024-12-05",-2061330],["2024-12-05",-2097001],["2024-12-05",-2201711],["2024-12-05",-2239585],["2024-12-10",-2215624],["2024-12-10",-2252661],["2024-12-13",-2294767],["2024-12-13",-2245979],["2024-12-16",-2174234],["2024-12-16",-2202409],["2024-12-17",-2301865],["2024-12-17",-2330310],["2024-12-18",-2427230],["2024-12-18",-2454582],["2024-12-19",-2627520],["2024-12-19",-2678524],["2024-12-19",-2699484],["2024-12-20",-2753752],["2024-12-20",-2783192],["2024-12-20",-2818189],["2024-12-23",-2758441],["2024-12-24",-2781905],["2024-12-24",-2809639],["2024-12-26",-2849677],["2024-12-26",-2879202],["2024-12-30",-2847780],["2024-12-30",-2877415],["2024-12-30",-2919100],["2025-01-01",-2893645],["2025-01-01",-2923290],["2025-01-02",-3022113],["2025-01-03",-2972708],["2025-01-03",-3001812],["2025-01-06",-3103366],["2025-01-07",-3058171],["2025-01-07",-3090937],["2025-01-07",-3123703],["2025-01-08",-3154081],["2025-01-09",-3184908],["2025-01-10",-3141936],["2025-01-10",-3187094],["2025-01-14",-3104938],["2025-01-16",-3131654],["2025-01-16",-3141754],["2025-01-17",-3182694],["2025-01-17",-3221177],["2025-01-20",-3247922],["2025-01-21",-3284165],["2025-01-21",-3332458],["2025-01-21",-3372364],["2025-01-21",-3398564],["2025-01-22",-3351442],["2025-01-23",-3379439],["2025-01-24",-3477472],["2025-01-24",-3503813],["2025-01-28",-3417671],["2025-02-01",-3307218],["2025-02-01",-3338878],["2025-02-01",-3388204],["2025-02-01",-3420308],["2025-02-03",-3466683],["2025-02-04",-3543737],["2025-02-06",-3496966],["2025-02-07",-3520793],["2025-02-07",-3548968],["2025-02-12",-3400895],["2025-02-12",-3378403],["2025-02-12",-3406834],["2025-02-13",-3376773],["2025-02-14",-3407048],["2025-02-17",-3556469],["2025-02-18",-3583449],["2025-03-03",-3425239],["2025-03-06",-3614200],["2025-03-10",-3591448],["2025-03-13",-3573573],["2025-03-13",-3600347],["2025-03-17",-3603446],["2025-03-18",-3630683],["2025-03-18",-3639392],["2025-03-19",-3666713],["2025-03-20",-3745658],["2025-03-25",-3618109],["2025-03-26",-3619359],["2025-03-27",-3650965],["2025-03-28",-3635174],["2025-03-28",-3663136],["2025-04-01",-3738340],["2025-04-01",-3772119],["2025-04-01",-3776790],["2025-04-02",-3804779],["2025-04-03",-3849263],["2025-04-03",-3875590],["2025-04-03",-3884993],["2025-04-04",-3923681],["2025-04-04",-3962135],["2025-04-07",-4073702],["2025-04-07",-4191021],["2025-04-07",-4303932],["2025-04-07",-4305944],["2025-04-09",-4274480],["2025-04-11",-4368810],["2025-04-25",-4076153],["2025-04-25",-4043669],["2025-04-30",-3983017],["2025-04-30",-4016936],["2025-05-06",-3977858],["2025-05-07",-4009101],["2025-05-07",-4038316],["2025-05-09",-3971938],["2025-05-09",-4052302],["2025-05-12",-4244027],["2025-05-13",-4147108],["2025-05-13",-4125727],["2025-05-13",-4153276],["2025-05-14",-4123447],["2025-05-14",-4154358],["2025-05-15",-4140803],["2025-05-15",-4180781],["2025-05-15",-4279248],["2025-05-19",-4245145],["2025-05-20",-4272472],["2025-05-20",-4373460],["2025-05-21",-4401213],["2025-05-21",-4369813],["2025-05-23",-4325893],["2025-05-27",-4257244],["2025-05-27",-4296568],["2025-05-27",-4336261],["2025-05-29",-4309509],["2025-05-29",-4337227],["2025-06-02",-4380133],["2025-06-03",-4380699],["2025-06-04",-4407931],["2025-06-05",-4360442],["2025-06-05",-4390364],["2025-06-12",-4314290],["2025-06-16",-4228297],["2025-06-18",-4190919],["2025-06-18",-4217671],["2025-06-18",-4252788],["2025-06-18",-4280162],["2025-06-23",-4233349],["2025-06-24",-4329940],["2025-06-30",-4243677],["2025-07-03",-4276979],["2025-07-03",-4323539],["2025-07-04",-4351981],["2025-07-10",-4390269],["2025-07-10",-4417791],["2025-07-11",-4486179],["2025-07-15",-4516188],["2025-07-18",-4562066],["2025-07-21",-4539030],["2025-07-21",-4567523],["2025-07-24",-4665310],["2025-07-24",-4692694],["2025-07-29",-4588657],["2025-07-31",-4644841],["2025-08-04",-4676199],["2025-08-04",-4706835],["2025-08-07",-4654418],["2025-08-08",-4691994],["2025-08-11",-4720871],["2025-08-12",-4695235],["2025-08-13",-4723029],["2025-08-22",-4584445],["2025-09-01",-4471517],["2025-09-02",-4504681],["2025-09-03",-4531408],["2025-09-22",-4349878],["2025-10-01",-4233687],["2025-10-08",-4155506],["2025-10-08",-4182346],["2025-10-14",-4147341],["2025-10-15",-4186284],["2025-10-21",-4052512],["2025-10-23",-4095003],["2025-10-23",-4123067],["2025-10-23",-4136366],["2025-10-24",-4165840],["2025-10-28",-4202722],["2025-10-28",-4229600],["2025-10-30",-4191308],["2025-10-31",-4221088],["2025-11-03",-4319575],["2025-11-03",-4350641],["2025-11-04",-4397207],["2025-11-06",-4423880],["2025-11-07",-4546167],["2025-11-07",-4580944],["2025-11-07",-4614103],["2025-11-11",-4595952],["2025-11-11",-4622745],["2025-11-14",-4552228],["2025-11-14",-4578939],["2025-11-21",-4499810],["2025-11-26",-4464694],["2025-11-27",-4492528],["2025-12-04",-4445022],["2025-12-04",-4473244],["2025-12-10",-4427657],["2025-12-10",-4454241],["2025-12-11",-4434369],["2025-12-15",-4393129],["2025-12-17",-4420904],["2025-12-26",-4365924],["2025-12-31",-4338235]]}],"reasons":[{"reason":"TRAIL_STOP","net":4034331,"count":146},{"reason":"ADVERSE_GAP_ASSUMED_MANUAL_EXIT","net":-1524113,"count":45},{"reason":"DEFERRED_FLIP","net":-2056936,"count":20},{"reason":"EARLY_STOP","net":-3166826,"count":99}],"gross":-1866423,"costs":847121,"stop":{"TRAIN":[{"name":"adverse-first","points":[[60,-2713544],[75,-1221736],[90,-950561],[120,-636852],[150,76992]]},{"name":"favourable-first","points":[[60,-4243677],[75,-2260174],[90,-2523206],[120,-1611565],[150,-1230153]]}],"VALIDATE":[{"name":"adverse-first","points":[[60,-110415],[75,-21655],[90,-50990],[120,-658394],[150,70888]]},{"name":"favourable-first","points":[[60,-94558],[75,-72887],[90,-102223],[120,-709626],[150,27037]]}]},"rows":[{"variant":"V1","TRAIN_adv_net":-2713544,"TRAIN_adv_dd":3475034,"TRAIN_fav_net":-4243677,"TRAIN_fav_dd":4688287,"VALIDATE_adv_net":-110415,"VALIDATE_adv_dd":562790,"VALIDATE_fav_net":-94558,"VALIDATE_fav_dd":570233,"rule":null},{"variant":"H1_22k","TRAIN_adv_net":-2055983,"TRAIN_adv_dd":2838759,"TRAIN_fav_net":-3398078,"TRAIN_fav_dd":3765239,"VALIDATE_adv_net":276494,"VALIDATE_adv_dd":410749,"VALIDATE_fav_net":276494,"VALIDATE_fav_dd":410749,"rule":null},{"variant":"H1_24k","TRAIN_adv_net":-2028668,"TRAIN_adv_dd":2564283,"TRAIN_fav_net":-4307162,"TRAIN_fav_dd":4484122,"VALIDATE_adv_net":273719,"VALIDATE_adv_dd":370658,"VALIDATE_fav_net":272637,"VALIDATE_fav_dd":370658,"rule":{"a":true,"b":false,"c":false,"promoted":false}},{"variant":"H1_26k","TRAIN_adv_net":-2744967,"TRAIN_adv_dd":2961916,"TRAIN_fav_net":-4603566,"TRAIN_fav_dd":4782852,"VALIDATE_adv_net":-76481,"VALIDATE_adv_dd":509563,"VALIDATE_fav_net":-230844,"VALIDATE_fav_dd":648846,"rule":null},{"variant":"H2","TRAIN_adv_net":-2897938,"TRAIN_adv_dd":3441489,"TRAIN_fav_net":-4332499,"TRAIN_fav_dd":4749191,"VALIDATE_adv_net":-546532,"VALIDATE_adv_dd":673092,"VALIDATE_fav_net":-478820,"VALIDATE_fav_dd":642240,"rule":{"a":false,"b":"n/a","c":false,"promoted":false}},{"variant":"H3","TRAIN_adv_net":-4126369,"TRAIN_adv_dd":4492988,"TRAIN_fav_net":-7076370,"TRAIN_fav_dd":7421051,"VALIDATE_adv_net":-149604,"VALIDATE_adv_dd":416678,"VALIDATE_fav_net":-300392,"VALIDATE_fav_dd":534783,"rule":{"a":false,"b":"n/a","c":false,"promoted":false}},{"variant":"H4_75","TRAIN_adv_net":-1221736,"TRAIN_adv_dd":1922820,"TRAIN_fav_net":-2260174,"TRAIN_fav_dd":2842174,"VALIDATE_adv_net":-21655,"VALIDATE_adv_dd":513476,"VALIDATE_fav_net":-72887,"VALIDATE_fav_dd":555967,"rule":null},{"variant":"H4_90","TRAIN_adv_net":-950561,"TRAIN_adv_dd":1641561,"TRAIN_fav_net":-2523206,"TRAIN_fav_dd":3162682,"VALIDATE_adv_net":-50990,"VALIDATE_adv_dd":566954,"VALIDATE_fav_net":-102223,"VALIDATE_fav_dd":609445,"rule":{"a":false,"b":false,"c":true,"promoted":false}},{"variant":"H4_120","TRAIN_adv_net":-636852,"TRAIN_adv_dd":1113953,"TRAIN_fav_net":-1611565,"TRAIN_fav_dd":2020811,"VALIDATE_adv_net":-658394,"VALIDATE_adv_dd":822479,"VALIDATE_fav_net":-709626,"VALIDATE_fav_dd":864970,"rule":{"a":false,"b":false,"c":true,"promoted":false}},{"variant":"H4_150","TRAIN_adv_net":76992,"TRAIN_adv_dd":990718,"TRAIN_fav_net":-1230153,"TRAIN_fav_dd":1868370,"VALIDATE_adv_net":70888,"VALIDATE_adv_dd":407013,"VALIDATE_fav_net":27037,"VALIDATE_fav_dd":407013,"rule":null},{"variant":"H5","TRAIN_adv_net":-2463300,"TRAIN_adv_dd":3224634,"TRAIN_fav_net":-4216080,"TRAIN_fav_dd":4605244,"VALIDATE_adv_net":-132239,"VALIDATE_adv_dd":562790,"VALIDATE_fav_net":-116383,"VALIDATE_fav_dd":570233,"rule":{"a":false,"b":"n/a","c":true,"promoted":false}},{"variant":"S150","TRAIN_adv_net":-3062561,"TRAIN_adv_dd":3358780,"TRAIN_fav_net":-4931847,"TRAIN_fav_dd":5089488,"VALIDATE_adv_net":88339,"VALIDATE_adv_dd":311180,"VALIDATE_fav_net":-64759,"VALIDATE_fav_dd":354017,"rule":null},{"variant":"S210","TRAIN_adv_net":-3997179,"TRAIN_adv_dd":4563489,"TRAIN_fav_net":-5416995,"TRAIN_fav_dd":5983305,"VALIDATE_adv_net":-2910,"VALIDATE_adv_dd":355097,"VALIDATE_fav_net":-50341,"VALIDATE_fav_dd":355097,"rule":null},{"variant":"S240","TRAIN_adv_net":-2933917,"TRAIN_adv_dd":3629058,"TRAIN_fav_net":-2628766,"TRAIN_fav_dd":3323906,"VALIDATE_adv_net":22784,"VALIDATE_adv_dd":216837,"VALIDATE_fav_net":-123641,"VALIDATE_fav_dd":266003,"rule":null}],"v1":{"adverse-first":{"TRAIN":{"net":-2713544.1167250113,"pf":0.7254130497137741,"trades":310},"VALIDATE":{"net":-110414.57797501136,"pf":0.928838132770483,"trades":60}},"favourable-first":{"TRAIN":{"net":-4243677.000712514,"pf":0.6225509831161651,"trades":329},"VALIDATE":{"net":-94558.44791251307,"pf":0.9399229507802564,"trades":63}}},"promoted":[],"final_pick":null};
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const lakh = v => (v < 0 ? "−" : "") + "₹" + (Math.abs(v) / 1e5).toFixed(1) + " L";
+const inr = v => (v < 0 ? "−" : "") + "₹" + Math.abs(Math.round(v)).toLocaleString("en-IN");
+const tip = document.getElementById("tip");
+const show = (h, e) => { tip.innerHTML = h; tip.style.display = "block"; const r = tip.getBoundingClientRect();
+  tip.style.left = Math.min(e.clientX + 14, innerWidth - r.width - 8) + "px"; tip.style.top = Math.min(e.clientY + 14, innerHeight - r.height - 8) + "px"; };
+const hide = () => tip.style.display = "none";
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, at, parent) => { const n = document.createElementNS(NS, tag); for (const k in at) n.setAttribute(k, at[k]); parent && parent.appendChild(n); return n; };
+const SER = ["--series-1", "--series-2"];
+function niceTicks(lo, hi, n = 5) {   // ticks that COVER [lo, hi]: first <= lo, last >= hi
+  const span = (hi - lo) || 1, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= step0); const out = [];
+  for (let v = Math.floor(lo / step) * step; v < hi + step - 1e-9; v += step) out.push(Math.round(v)); return out; }
+function legend(id, names) { document.getElementById(id).innerHTML = names.map((n, i) => `<span><span class="sw" style="background:var(${SER[i]})"></span>${n}</span>`).join(""); }
+
+// tiles
+(() => { const a = D.v1["adverse-first"].TRAIN, f = D.v1["favourable-first"].TRAIN;
+  const tiles = [["Hypotheses promoted", `${D.promoted.length} of 6`, "holdout not opened"],
+    ["V1 net, TRAIN", `${lakh(a.net)} / ${lakh(f.net)}`, "Sep 2023 – Jun 2025 · adverse / favourable ordering"],
+    ["V1 profit factor, TRAIN", `${a.pf.toFixed(2)} / ${f.pf.toFixed(2)}`, "below 1 = losing"],
+    ["V1 trades, TRAIN", `${a.trades} / ${f.trades}`, "438 sessions"]];
+  document.getElementById("tiles").innerHTML = tiles.map(([k, v, n]) => `<div class="card tile"><div class="k">${k}</div><div class="v">${v}</div><div class="n">${n}</div></div>`).join(""); })();
+
+// 1. equity (time axis)
+function lineTime(svg, series) {
+  const W = 1000, H = 340, L = 64, R = 96, T = 12, B = 30; svg.innerHTML = "";
+  const all = series.flatMap(s => s.points), ts = all.map(p => Date.parse(p[0])), ys = all.map(p => p[1]).concat([0]);
+  const x0 = Math.min(...ts), x1 = Math.max(...ts), yt = niceTicks(Math.min(...ys), Math.max(...ys)), y0 = yt[0], y1 = yt[yt.length - 1];
+  const X = t => L + (W - L - R) * (t - x0) / (x1 - x0), Y = v => T + (H - T - B) * (1 - (v - y0) / (y1 - y0));
+  for (const v of yt) { el("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v), stroke: css(v === 0 ? "--axis" : "--grid"), "stroke-width": 1 }, svg);
+    el("text", { x: L - 8, y: Y(v) + 4, "text-anchor": "end" }, svg).textContent = lakh(v); }
+  for (let y = new Date(x0).getFullYear(); y <= new Date(x1).getFullYear(); y++) for (const mo of [0, 6]) { const t = Date.UTC(y, mo, 1); if (t < x0 || t > x1) continue;
+    el("text", { x: X(t), y: H - 8, "text-anchor": "middle" }, svg).textContent = (mo ? "Jul " : "Jan ") + y; }
+  const vs = Date.parse("2025-07-01"); el("line", { x1: X(vs), x2: X(vs), y1: T, y2: H - B, stroke: css("--axis"), "stroke-dasharray": "3 3" }, svg);
+  el("text", { x: X(vs) + 6, y: T + 12, class: "lbl" }, svg).textContent = "VALIDATE →";
+  series.forEach((s, i) => { const d = s.points.map((p, k) => `${k ? "L" : "M"}${X(Date.parse(p[0])).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("");
+    el("path", { d, fill: "none", stroke: css(SER[i]), "stroke-width": 2, "stroke-linejoin": "round" }, svg);
+    const last = s.points[s.points.length - 1]; el("text", { x: X(Date.parse(last[0])) + 8, y: Y(last[1]) + 4 + (i ? 12 : -4), class: "lbl" }, svg).textContent = lakh(last[1]); });
+  const cross = el("line", { y1: T, y2: H - B, stroke: css("--axis"), visibility: "hidden" }, svg);
+  const dots = series.map((s, i) => el("circle", { r: 4.5, fill: css(SER[i]), stroke: css("--surface-1"), "stroke-width": 2, visibility: "hidden" }, svg));
+  const hit = el("rect", { x: L, y: T, width: W - L - R, height: H - T - B, fill: "transparent" }, svg);
+  hit.addEventListener("mousemove", e => { const r = svg.getBoundingClientRect(), t = x0 + (x1 - x0) * ((e.clientX - r.left) * W / r.width - L) / (W - L - R);
+    let html = ""; series.forEach((s, i) => { let best = s.points[0]; for (const p of s.points) if (Date.parse(p[0]) <= t) best = p;
+      dots[i].setAttribute("cx", X(Date.parse(best[0]))); dots[i].setAttribute("cy", Y(best[1])); dots[i].setAttribute("visibility", "visible");
+      html += `<div><span class="sw" style="background:var(${SER[i]})"></span>${s.name}: <b>${inr(best[1])}</b></div>`; });
+    cross.setAttribute("x1", X(t)); cross.setAttribute("x2", X(t)); cross.setAttribute("visibility", "visible");
+    show(`<div style="color:var(--ink-2)">${new Date(t).toISOString().slice(0, 10)}</div>${html}`, e); });
+  hit.addEventListener("mouseleave", () => { hide(); cross.setAttribute("visibility", "hidden"); dots.forEach(d => d.setAttribute("visibility", "hidden")); });
+}
+
+// 2. diverging bars
+function bars(svg, rows) {
+  const W = 1000, H = 230, L = 250, R = 110, T = 8, rowH = 50; svg.innerHTML = "";
+  const m = Math.max(...rows.map(r => Math.abs(r.net))), xt = niceTicks(-m, m, 4), a = xt[0], b = xt[xt.length - 1];
+  const X = v => L + (W - L - R) * (v - a) / (b - a);
+  for (const v of xt) { el("line", { x1: X(v), x2: X(v), y1: T, y2: T + rows.length * rowH, stroke: css(v === 0 ? "--axis" : "--grid") }, svg);
+    el("text", { x: X(v), y: T + rows.length * rowH + 16, "text-anchor": "middle" }, svg).textContent = lakh(v); }
+  rows.forEach((r, i) => { const y = T + i * rowH + 12, h = 26, x = Math.min(X(0), X(r.net)), w = Math.abs(X(r.net) - X(0));
+    el("text", { x: L - 12, y: y + 17, "text-anchor": "end", class: "lbl" }, svg).textContent = r.reason.replace(/_/g, " ").toLowerCase() + ` (${r.count})`;
+    const bar = el("rect", { x, y, width: Math.max(w, 2), height: h, rx: 4, fill: css(r.net >= 0 ? "--pos" : "--neg") }, svg);
+    el("text", { x: r.net >= 0 ? X(r.net) + 8 : X(r.net) - 8, y: y + 17, "text-anchor": r.net >= 0 ? "start" : "end", class: "lbl" }, svg).textContent = lakh(r.net);
+    const hit = el("rect", { x: L, y: y - 8, width: W - L - R, height: h + 16, fill: "transparent" }, svg);
+    hit.addEventListener("mousemove", e => show(`<b>${r.reason}</b><div>${r.count} trades · net <b>${inr(r.net)}</b></div><div style="color:var(--ink-2)">${inr(r.net / r.count)} per trade</div>`, e));
+    hit.addEventListener("mouseleave", hide); });
+}
+
+// 3. line on ordered x (stop width)
+function lineOrd(svg, series) {
+  const W = 480, H = 260, L = 58, R = 16, T = 12, B = 36; svg.innerHTML = "";
+  const xs = series[0].points.map(p => p[0]), ys = series.flatMap(s => s.points.map(p => p[1])).concat([0]);
+  const yt = niceTicks(Math.min(...ys), Math.max(...ys), 4), y0 = yt[0], y1 = yt[yt.length - 1];
+  const PX = 22, X = v => L + PX + (W - L - R - 2 * PX) * (v - xs[0]) / (xs[xs.length - 1] - xs[0]), Y = v => T + (H - T - B) * (1 - (v - y0) / (y1 - y0));
+  for (const v of yt) { el("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v), stroke: css(v === 0 ? "--axis" : "--grid") }, svg);
+    el("text", { x: L - 6, y: Y(v) + 4, "text-anchor": "end" }, svg).textContent = lakh(v); }
+  for (const x of xs) el("text", { x: X(x), y: H - 18, "text-anchor": "middle" }, svg).textContent = x === 60 ? "60 (V1)" : x;
+  el("text", { x: (L + W - R) / 2, y: H - 2, "text-anchor": "middle" }, svg).textContent = "early stop = arm distance (points)";
+  series.forEach((s, i) => { el("path", { d: s.points.map((p, k) => `${k ? "L" : "M"}${X(p[0])},${Y(p[1])}`).join(""), fill: "none", stroke: css(SER[i]), "stroke-width": 2 }, svg);
+    s.points.forEach(p => { const c = el("circle", { cx: X(p[0]), cy: Y(p[1]), r: 4.5, fill: css(SER[i]), stroke: css("--surface-1"), "stroke-width": 2 }, svg);
+      const hit = el("circle", { cx: X(p[0]), cy: Y(p[1]), r: 12, fill: "transparent" }, svg);
+      hit.addEventListener("mousemove", e => show(`<b>S = A = ${p[0]}</b>${p[0] === 60 ? " (V1)" : ""}<div>${s.name}: <b>${inr(p[1])}</b></div>`, e));
+      hit.addEventListener("mouseleave", hide); }); });
+}
+
+// 4. table
+function table() {
+  const f = v => `<td class="${v < 0 ? "neg" : "pos"}">${lakh(v)}</td>`, rule = r => !r ? `<span class="chip">reference</span>` :
+    `(a) ${r.a ? "✓" : "✗"} &nbsp;(b) ${r.b === "n/a" ? "–" : r.b ? "✓" : "✗"} &nbsp;(c) ${r.c ? "✓" : "✗"} &nbsp;<b>${r.promoted ? "PROMOTED" : "not promoted"}</b>`;
+  document.getElementById("tbl").innerHTML = `<thead><tr><th>variant</th><th>TRAIN adv</th><th>TRAIN fav</th><th>VALIDATE adv</th><th>VALIDATE fav</th><th>VALIDATE max DD (adv)</th><th style="text-align:left">rule</th></tr></thead><tbody>` +
+    D.rows.map(r => `<tr><td>${r.variant}</td>${f(r.TRAIN_adv_net)}${f(r.TRAIN_fav_net)}${f(r.VALIDATE_adv_net)}${f(r.VALIDATE_fav_net)}<td>${lakh(r.VALIDATE_adv_dd)}</td><td style="text-align:left">${rule(r.rule)}</td></tr>`).join("") + "</tbody>";
+}
+
+function render() {
+  legend("eqlegend", D.equity.map(s => s.name)); legend("stlegend", D.stop.TRAIN.map(s => s.name)); legend("stlegend2", D.stop.VALIDATE.map(s => s.name));
+  lineTime(document.getElementById("eq"), D.equity); bars(document.getElementById("rsn"), D.reasons);
+  lineOrd(document.getElementById("stT"), D.stop.TRAIN); lineOrd(document.getElementById("stV"), D.stop.VALIDATE); table();
+  document.getElementById("grossnote").textContent = `Total: gross ${inr(D.gross)}, costs ${inr(D.costs)}, net ${inr(D.gross - D.costs)}. The trades lose before costs.`;
+}
+render();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+</script>
+</body></html>

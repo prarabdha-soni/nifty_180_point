@@ -51,6 +51,9 @@ fetch_data.py            Angel One SmartAPI -> merged CSV (spot + near-month fut
 validate_data.py         data-quality report on a merged CSV; run BEFORE any backtest
 split_data.py            in-sample / holdout split by date (holdout written read-only)
 compare_runs.py          side-by-side metrics for N result dirs + points-vs-%-of-index tables
+make_proxy_data.py       V2 research: 3-yr spot proxy per window (futures = spot, no expiry column)
+v2_study.py              V2 research: pre-registered variants + selection rule (--final for the one holdout run)
+V2_RESEARCH.md           V2 pre-registration (never edited above "Results") and results
 make_report.py           self-contained HTML report (overview, equity, ledger, per-trade mechanics drawn
                          from the engine's replayed state); LABEL=dir[@data.csv] per run; no external libs
 .env.example             credential keys for fetch_data.py (copy to .env; .env is gitignored)
@@ -239,6 +242,30 @@ NEAREST_AVAILABLE (a back-month contract).
 **Holdout discipline:** `data/nifty_3y_holdout.csv` is written mode 0444 and
 must not be backtested until the in-sample ledger is signed off. Do not tune
 parameters on it.
+
+## V2 research (started 2026-09-28, owner's request)
+
+V1 remains the control; V2 exists only as opt-in config switches whose
+defaults reproduce V1 byte-for-byte (verified: 4 saved V1 runs re-run
+identical in trades/executions/events/metrics after the H1 switch was added).
+The one engine switch so far is `distance_scale_ref` (H1): D,S,A,P,T and the
+futures-confirm distance scale with `prev_session_close / ref` per session, by
+rebinding a `dataclasses.replace`d Config on the components in
+`Backtester._apply_distance_scale`. `tests/test_v2_switches.py` covers it.
+
+Protocol and rules live in `V2_RESEARCH.md` (pre-registered, committed
+before any variant ran; do not edit above "Results"). Data is a 3-year spot
+proxy (`make_proxy_data.py` → `data/proxy_<WINDOW>[_favfirst].csv`): futures
+= spot, so the confirmation leg is moot, costs are on spot notional and there
+is no basis P&L, expiry or roll. Calibration against the real-futures
+in-sample (55 sessions): trade count within 5%, same sign, but proxy net ≈ 1/3
+of real and only 5 of 8 fresh entries found — trust comparisons between
+variants, not absolute rupees. Windows: TRAIN 2023-09-21..2025-06-30,
+VALIDATE 2025-07..2025-12, HOLDOUT-P 2026-01..2026-05-29 (one look, via
+`v2_study.py --final <id>`, which refuses to run twice). 2026-08-19..09-18
+stays untouched. Results: `results/v2/` (summary.csv, selection.json).
+A promoted variant is forward-tested as an extra paper tab; it never
+replaces V1.
 
 ## The three MATERIAL decisions (DECISIONS.md R1, R2, R6)
 
