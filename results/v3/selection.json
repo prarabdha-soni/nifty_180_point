@@ -1,0 +1,35 @@
+{
+  "C1": {
+    "sharpe_both_windows>=0.5": false,
+    "gross_per_trade>=1.5x_cost": false,
+    "pass": false,
+    "train_sharpe": -5.700570411980624,
+    "validate_sharpe": -7.01277587114641,
+    "gross_over_cost": 0.06910116728106812
+  },
+  "C2": {
+    "sharpe_both_windows>=0.5": false,
+    "gross_per_trade>=1.5x_cost": false,
+    "pass": false,
+    "train_sharpe": -1.2773778815967383,
+    "validate_sharpe": -3.5468072857634874,
+    "gross_over_cost": 0.4836073191267147
+  },
+  "C4": {
+    "sharpe_both_windows>=0.5": false,
+    "gross_per_trade>=1.5x_cost": false,
+    "pass": false,
+    "train_sharpe": 0.19603471347636506,
+    "validate_sharpe": -1.7126829825043959,
+    "gross_over_cost": 1.095793013921671
+  },
+  "C3": {
+    "sharpe_both_halves>=0.3": false,
+    "smaller_dd_than_buyhold": false,
+    "pass": false,
+    "first_sharpe": 0.33543672220710624,
+    "second_sharpe": -0.004373075137095972,
+    "full_dd": -0.6288597951256752,
+    "buyhold_full_dd": -0.6009864790110651
+  }
+}

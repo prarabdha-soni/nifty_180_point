@@ -117,3 +117,48 @@ whether an edge can pay for itself.
 ## Results
 
 *(appended after the runs; the section above is not edited)*
+
+### Run of 2026-09-29 (`v3_study.py`)
+
+**Outcome: nothing passes. No candidate earns a holdout look or a paper tab.**
+
+| candidate | effect on NIFTY **before costs** | net Sharpe at today's costs, TRAIN / VALIDATE | why it fails |
+|---|---|---|---|
+| C1 intraday momentum | **absent**: corr(r_ROD, last 30 min) = −0.075, t = −1.8 (566 sessions); gross Sharpe +0.41 / +0.45 on 0.005%/trade | −5.70 / −7.01 | no edge to pay costs with |
+| C2 noise-area momentum | **present**: gross Sharpe +1.20 / +1.65; 0.048% / 0.032% per trade | −1.28 / −3.55 | edge < cost (0.48× the 0.067% round trip) |
+| C4 overnight drift | **present**: gross Sharpe +2.18 / +2.03; mean 0.065% per night | +0.20 / −1.71 | edge = cost; at the STT in force at the time, TRAIN net Sharpe was +1.24 |
+| C3 time-series momentum (L/S) | weak | 1995–2010 +0.34, 2011–2025 −0.00 | second half ≈ 0; max DD −63% vs −60% buy & hold |
+
+Reference runs (never promotable):
+
+| | net Sharpe (today's costs) | max drawdown | total return (1×) |
+|---|---|---|---|
+| C3 long/flat, 1995-07 … 2025-12 | 0.50 (halves 0.62 / 0.39) | −41% | +598% |
+| Buy & hold NIFTY, 1995-07 … 2025-12 | **0.58** (halves 0.60 / 0.64) | −60% | **+2,078%** |
+| Buy & hold, TRAIN / VALIDATE | 1.04 / 0.54 | −16% / −5% | +26% / +2% |
+| V1 on proxy at today's STT, TRAIN / VALIDATE | — | — | net −₹41.2 L / −₹4.1 L (costs ₹22.6 L / ₹4.8 L) |
+
+Files: `results/v3/summary.csv`, `results/v3/selection.json`, `results/v3/daily_*.csv`.
+
+### What this says (post-hoc)
+
+1. **Two of the published effects are real on NIFTY**: overnight drift and
+   noise-area breakouts. **The 0.05% futures STT from 2026-04-01 removed their
+   margin.** Overnight drift averaged 0.065% a night against a 0.067% round
+   trip. Any strategy that turns over its notional daily now needs an edge
+   above ~0.07% per trade just to break even. That was the stated purpose of
+   the hike.
+2. **Intraday momentum (the JFE effect) is not present on NIFTY 2023–25**. The
+   JFE paper does not cover India.
+3. **Trend following on one index is weak.** Long/short time-series momentum
+   earned nothing over 2011–2025. The long/flat filter cut the 30-year max
+   drawdown from −60% to −41%, but gave up about three-quarters of the return
+   (Sharpe 0.50 vs 0.58).
+4. **Holding NIFTY beat every systematic rule tested here**, on Sharpe and on
+   return, over 30 years and in both halves.
+5. **V1's default cost (0.015%/side) now understates real costs by more than
+   half.** At today's STT, V1's TRAIN loss grows from −₹27.1 L to −₹41.2 L.
+
+Caveats: proxy (futures = spot, so no basis and no roll slippage); 1× sizing
+(C2 as published uses volatility sizing); the costs are estimates. None of
+these can close a gap between an edge of 0.03–0.065% and a cost of 0.067%.

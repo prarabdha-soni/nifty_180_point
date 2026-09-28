@@ -267,6 +267,19 @@ stays untouched. Results: `results/v2/` (summary.csv, selection.json).
 A promoted variant is forward-tested as an extra paper tab; it never
 replaces V1.
 
+## V3 research (2026-09-29): published strategy families — none pass
+
+`V3_RESEARCH.md` (pre-registered) + `v3_study.py`: intraday momentum (JFE),
+noise-area momentum (Zarattini 2024), time-series momentum (daily, 1995+,
+`data/nifty_daily_1995.csv`), overnight drift, all frozen as published and
+costed at **today's 0.05% futures STT (since 2026-04-01)**. Nothing passed;
+overnight drift and noise-area breakouts are real on NIFTY pre-cost but the
+STT removed the margin; intraday momentum is absent on NIFTY 2023–25; buy &
+hold NIFTY beat every rule on 30 years. **V1's default
+`transaction_cost_per_side=0.00015` with `stt_sell_side_pct=0` understates
+2026 costs by >50%** — use `overrides/v3_v1_today.json`
+(`stt_sell_side_pct=0.0005`) for any cost-realistic V1 run.
+
 ## The three MATERIAL decisions (DECISIONS.md R1, R2, R6)
 
 These are places where the spec had two readings and the two readings produce
